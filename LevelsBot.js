@@ -9,9 +9,9 @@ const BOT_CONSTANTS = {
     OPTIMAL_ATTACK_RANGE: 40, // Optimal range for attacking
     RESPAWN_DELAY: 60000, // 60 seconds in ms
     KILL_POINTS: 100,
-    MOVEMENT_SPEED: 15, // Further reduced for better control
+    MOVEMENT_SPEED: 7.5, // Reduced by 50% from 15
     ROTATION_SPEED: 0.05,
-    MAX_VELOCITY: 0.3, // Further reduced max speed
+    MAX_VELOCITY: 0.15, // Reduced by 50% from 0.3
     BOUNDARY_MARGIN: 100,
     FRICTION: 0.92,
     CORNER_DETECTION_MARGIN: 150 // Margin for detecting corners
