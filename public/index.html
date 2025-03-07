@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Demolition Derby</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Add error handling for CSS loading -->
   <script>
@@ -33,7 +36,8 @@
     <div id="loading-screen">
       <h1>Demolition Derby</h1>
       <div class="loader"></div>
-      <p>Loading game...</p>
+      <p>Initializing Combat Systems...</p>
+      <p class="loading-status">Loading: <span id="loading-progress">0%</span></p>
     </div>
 
     <!-- Game UI - initially hidden -->
@@ -66,10 +70,14 @@
 
     <!-- Username modal - initially hidden, will be shown by JavaScript -->
     <div id="username-modal" class="hidden">
+      <h1 class="game-title">Demolition Derby</h1>
       <div class="modal-content">
         <h2>Enter Your Username</h2>
-        <input type="text" id="username-input" placeholder="Enter username or play as guest" maxlength="15">
-        <button id="start-game-btn">Start Game</button>
+        <form id="username-form" onsubmit="return false;">
+          <input type="text" id="username-input" placeholder="Enter username" maxlength="15" required>
+          <p id="username-error" class="error-message hidden">Username is required to play</p>
+          <button id="start-game-btn" type="submit">Enter the Arena</button>
+        </form>
       </div>
     </div>
 

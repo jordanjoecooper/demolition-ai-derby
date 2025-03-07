@@ -1,1 +1,1 @@
-Add a cyber punk esque loading screem
+Add a cyber punk esque loading screen when the game loads and ensure players always enter a name before starting the game.

@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const usernameModal = document.getElementById('username-modal');
   const loadingScreen = document.getElementById('loading-screen');
   const gameUI = document.getElementById('game-ui');
+  const loadingProgress = document.getElementById('loading-progress');
+  const usernameForm = document.getElementById('username-form');
+  const usernameError = document.getElementById('username-error');
 
   // Initially hide loading screen and show username modal
   loadingScreen.classList.add('hidden');
@@ -15,6 +18,71 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game state
   let gameInitialized = false;
   let username = '';
+  let progress = 0;
+  const loadingMessages = [
+    'Initializing Combat Systems',
+    'Calibrating Weapons',
+    'Loading Arena Assets',
+    'Establishing Neural Link',
+    'Activating Defense Matrix',
+    'Synchronizing Battle Grid'
+  ];
+
+  // Simulate loading progress
+  const loadingInterval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress >= 100) {
+      progress = 100;
+      clearInterval(loadingInterval);
+      setTimeout(() => {
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => {
+          loadingScreen.style.display = 'none';
+          showUsernameModal();
+        }, 1000);
+      }, 500);
+    }
+    loadingProgress.textContent = Math.floor(progress) + '%';
+    
+    // Update loading message
+    const messageIndex = Math.floor((progress / 100) * loadingMessages.length);
+    const loadingMessage = document.querySelector('#loading-screen p:not(.loading-status)');
+    if (loadingMessage && messageIndex < loadingMessages.length) {
+      loadingMessage.textContent = loadingMessages[messageIndex] + '...';
+    }
+  }, 100);
+
+  function showUsernameModal() {
+    usernameModal.classList.remove('hidden');
+    usernameInput.focus();
+  }
+
+  // Handle username submission
+  usernameForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const username = usernameInput.value.trim();
+    
+    if (username.length === 0) {
+      usernameError.classList.remove('hidden');
+      usernameInput.classList.add('error');
+      return;
+    }
+    
+    // Hide error if previously shown
+    usernameError.classList.add('hidden');
+    usernameInput.classList.remove('error');
+    
+    // Initialize game with username
+    initializeGame(username);
+  });
+
+  // Handle input changes
+  usernameInput.addEventListener('input', () => {
+    if (usernameInput.value.trim().length > 0) {
+      usernameError.classList.add('hidden');
+      usernameInput.classList.remove('error');
+    }
+  });
 
   // Start game when button is clicked
   startGameBtn.addEventListener('click', () => {
@@ -39,9 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
       startGameBtn.click();
     }
   });
-
-  // Focus the username input
-  usernameInput.focus();
 });
 
 // Initialize the game
