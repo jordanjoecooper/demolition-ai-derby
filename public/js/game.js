@@ -67,8 +67,19 @@ class Game {
 
     // Set invincibility timer (5 seconds)
     setTimeout(() => {
-      this.localPlayer.invincible = false;
-    }, this.spawnInvincibilityDuration);
+      // Gradually fade out invincibility over 1 second
+      this.localPlayer.invincibilityFadeStart = Date.now();
+      this.localPlayer.invincibilityFading = true;
+
+      setTimeout(() => {
+        this.localPlayer.invincible = false;
+        this.localPlayer.invincibilityFading = false;
+      }, 1000); // 1 second fade
+    }, this.spawnInvincibilityDuration - 1000); // Start fade 1 second before invincibility ends
+
+    // Add invincibility properties
+    this.localPlayer.invincibilityFading = false;
+    this.localPlayer.invincibilityFadeStart = 0;
   }
 
   createDeathScreen() {
@@ -166,10 +177,22 @@ class Game {
     this.localPlayer.invincible = true;
     this.localPlayer.velocity = { x: 0, y: 0, z: 0 };
 
-    // Remove invincibility after 5 seconds
+    // Reset invincibility state
+    this.localPlayer.invincible = true;
+    this.localPlayer.invincibilityFading = false;
+    this.localPlayer.invincibilityFadeStart = 0;
+
+    // Set invincibility timer with fade
     setTimeout(() => {
-      this.localPlayer.invincible = false;
-    }, 5000);
+      // Start fading
+      this.localPlayer.invincibilityFadeStart = Date.now();
+      this.localPlayer.invincibilityFading = true;
+
+      setTimeout(() => {
+        this.localPlayer.invincible = false;
+        this.localPlayer.invincibilityFading = false;
+      }, 1000); // 1 second fade
+    }, this.spawnInvincibilityDuration - 1000);
 
     // Notify server of respawn
     this.network.socket.emit('playerRespawned', {
@@ -299,6 +322,13 @@ class Game {
     // Check for collisions with obstacles
     this.checkObstacleCollisions();
 
+    // Calculate invincibility alpha for smooth transition
+    let invincibilityAlpha = 1;
+    if (this.localPlayer.invincibilityFading) {
+      const fadeProgress = (Date.now() - this.localPlayer.invincibilityFadeStart) / 1000;
+      invincibilityAlpha = Math.max(0, 1 - fadeProgress);
+    }
+
     // Update renderer with local player position
     if (!this.localPlayer.eliminated) {
       this.renderer.updatePlayer(
@@ -307,7 +337,8 @@ class Game {
         this.localPlayer.rotation,
         this.localPlayer.health,
         this.localPlayer.invincible,
-        this.controls.getInputs().boost
+        this.controls.getInputs().boost,
+        invincibilityAlpha  // Add this parameter
       );
     } else {
       // Remove player from renderer when eliminated
@@ -699,10 +730,11 @@ class Game {
     if (data.id === this.localPlayer.id) {
       // Local player eliminated
       this.localPlayer.eliminated = true;
-      // Wait for respawn
+      // Remove local player's car from the map
+      this.renderer.removePlayer(data.id);
     } else {
-      // Remove eliminated player's model
-      this.removePlayer(data.id);
+      // Remove eliminated player's car from the map
+      this.renderer.removePlayer(data.id);
     }
   }
 
@@ -713,8 +745,15 @@ class Game {
       this.localPlayer.health = data.health;
       this.localPlayer.eliminated = false;
     } else {
-      // Add or update respawned player
-      this.addOrUpdatePlayer(data);
+      // Add respawned player back to the game
+      this.renderer.updatePlayer(
+        data.id,
+        data.position,
+        data.rotation || 0,
+        data.health,
+        true, // Start with invincibility
+        false // Not boosting
+      );
     }
   }
 
@@ -743,10 +782,23 @@ class Game {
 
   // Handle game state updates
   handleGameUpdate(data) {
+    // Get current list of players
+    const currentPlayers = new Set(Object.keys(data.players));
+
+    // Get list of players we're currently rendering
+    const renderedPlayers = new Set(this.renderer.getPlayerIds());
+
+    // Remove players that are no longer in the game
+    for (const id of renderedPlayers) {
+      if (!currentPlayers.has(id)) {
+        this.renderer.removePlayer(id);
+      }
+    }
+
     // Update other players
     Object.entries(data.players).forEach(([id, player]) => {
       // Skip local player as we handle their position locally
-      if (id !== this.network.getPlayerId()) {
+      if (id !== this.network.getPlayerId() && !player.eliminated) {
         this.renderer.updatePlayer(
           id,
           player.position,
@@ -757,5 +809,11 @@ class Game {
         );
       }
     });
+  }
+
+  handlePlayerLeft(data) {
+    // Remove the player's car when they leave
+    this.renderer.removePlayer(data.id);
+    console.log(`Player ${data.id} left - removing their car`);
   }
 }
