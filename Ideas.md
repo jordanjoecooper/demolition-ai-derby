@@ -1,5 +1,5 @@
-Next Steps
-Here are some potential improvements for the future:
+IDEAS:
+
 Enhanced Graphics:
 Add more detailed car models and textures
 Implement particle effects for collisions and boosts
@@ -16,4 +16,23 @@ Technical Improvements:
 Optimize network code for better performance
 Add server-side validation to prevent cheating
 Implement lag compensation techniques
-To test the game, open multiple browser tabs or windows and navigate to http://localhost:3000 in each. You can then play against yourself to test the multiplayer functionality.
+
+Random Space X rocket launch in area of map you cannot get too . . .
+
+Random Trump laugh . . .
+
+
+
+Multiple cars . . . to choose from . .
+
+Some fast
+Some higher health but slower
+
+
+
+MONEY
+- Sponsor a ramp
+- Sponsor a air balloon
+- Special car????
+- Floor area of map with printed logo + extra points if you spin in it
+- Sponsored weather

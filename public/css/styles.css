@@ -180,15 +180,21 @@ canvas {
 #fps-counter {
   position: fixed;
   top: 10px;
-  right: 10px;
-  background-color: rgba(0, 0, 0, 0.5);
+  left: 10px;
   color: #0f0;
   font-family: monospace;
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
+  font-size: 14px;
   z-index: 100;
-  pointer-events: none;
+}
+
+#player-count {
+  position: fixed;
+  top: 30px;
+  left: 10px;
+  color: #fff;
+  font-family: monospace;
+  font-size: 14px;
+  z-index: 100;
 }
 
 /* Damage Flash Animation */

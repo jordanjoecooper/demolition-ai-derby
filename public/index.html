@@ -37,21 +37,13 @@
 
     <!-- Game UI - initially hidden -->
     <div id="game-ui" class="hidden">
-      <div id="health-bar-container">
+      <div id="fps-counter">FPS: 0</div>
+      <div id="player-count">0 players</div>
+      <div id="health-container">
         <div id="health-bar"></div>
-      </div>
-      <div id="boost-bar-container">
         <div id="boost-bar"></div>
       </div>
-      <div id="player-count">Players: 0</div>
-      <div id="round-info">Waiting for players...</div>
-    </div>
-
-    <!-- Game over screen - initially hidden -->
-    <div id="game-over" class="hidden">
-      <h2>Round Over!</h2>
-      <p id="winner-message"></p>
-      <p>Next round starting in <span id="countdown">10</span> seconds...</p>
+      <div id="elimination-message" style="display: none;"></div>
     </div>
 
     <!-- Username modal - initially hidden, will be shown by JavaScript -->
@@ -65,9 +57,6 @@
 
     <!-- Air time indicator - shown when player gets air time -->
     <div id="air-time-indicator" class="air-time-indicator">AIR TIME!</div>
-
-    <!-- FPS Counter -->
-    <div id="fps-counter">FPS: 0</div>
   </div>
 
   <!-- Error display for debugging -->

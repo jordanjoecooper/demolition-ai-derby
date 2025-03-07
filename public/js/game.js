@@ -15,7 +15,9 @@ class Game {
       isInAir: false,
       airTimeStart: 0,
       lastObstacleCollision: 0,
-      obstacleCooldown: 500 // ms
+      obstacleCooldown: 500, // ms
+      hasShield: false,
+      shieldEndTime: 0
     };
 
     // Physics constants
@@ -27,6 +29,7 @@ class Game {
     this.gravity = 0.01;
     this.groundLevel = 0;
     this.carRadius = 10; // For collision detection
+    this.spawnInvincibilityDuration = 5000; // 5 seconds of invincibility on spawn
 
     // Collision detection
     this.lastCollisionTime = {};
@@ -53,10 +56,10 @@ class Game {
     // Animation frame ID
     this.animationFrameId = null;
 
-    // Set invincibility timer (3 seconds)
+    // Set invincibility timer (5 seconds)
     setTimeout(() => {
       this.localPlayer.invincible = false;
-    }, 3000);
+    }, this.spawnInvincibilityDuration);
   }
 
   // Set up network callbacks
@@ -65,65 +68,21 @@ class Game {
       onGameState: (data) => {
         // Initialize local player position from server data
         const playerId = this.network.getPlayerId();
-        if (data.players[playerId]) {
-          this.localPlayer.position = { ...data.players[playerId].position };
-          this.localPlayer.rotation = data.players[playerId].rotation;
-          this.localPlayer.health = data.players[playerId].health;
-          this.localPlayer.invincible = data.players[playerId].invincible;
+        const player = data.players[playerId];
+        if (player) {
+          this.localPlayer.position = { ...player.position };
+          this.localPlayer.rotation = player.rotation;
+          this.localPlayer.health = player.health;
+          this.localPlayer.invincible = player.invincible;
         }
       },
-      onPlayerJoined: (data) => {
-        // Nothing specific needed here, renderer will handle it
-      },
-      onPlayerLeft: (data) => {
-        // Remove player from renderer
-        this.renderer.removePlayer(data.id);
-      },
-      onGameUpdate: (data) => {
-        // Update all players except local player
-        const playerId = this.network.getPlayerId();
-        Object.keys(data.players).forEach(id => {
-          if (id !== playerId) {
-            const player = data.players[id];
-            this.renderer.updatePlayer(
-              id,
-              player.position,
-              player.rotation,
-              player.health,
-              player.invincible,
-              player.boosting
-            );
-          }
-        });
-      },
-      onPlayerDamaged: (data) => {
-        // Play damage sound or effect
-        // For now, just log it
-        console.log(`Player ${data.id} took ${data.damage} damage, health: ${data.health}`);
-      },
-      onPlayerEliminated: (data) => {
-        // Play elimination effect
-        // For now, just log it
-        console.log(`Player ${data.id} was eliminated!`);
-
-        // Remove player from renderer
-        this.renderer.removePlayer(data.id);
-      },
-      onRoundOver: (data) => {
-        // Play round over effect
-        console.log(`Round over! Winner: ${data.winnerId}`);
-      },
-      onNewRound: (data) => {
-        // Reset local player
-        const playerId = this.network.getPlayerId();
-        if (data.players[playerId]) {
-          this.localPlayer.position = { ...data.players[playerId].position };
-          this.localPlayer.rotation = data.players[playerId].rotation;
-          this.localPlayer.health = data.players[playerId].health;
-          this.localPlayer.invincible = data.players[playerId].invincible;
-          this.localPlayer.velocity = { x: 0, y: 0, z: 0 };
-        }
-      }
+      onPlayerJoined: (data) => this.handlePlayerJoined(data),
+      onPlayerLeft: (data) => this.handlePlayerLeft(data),
+      onGameUpdate: (data) => this.handleGameUpdate(data),
+      onPlayerDamaged: (data) => this.handlePlayerDamaged(data),
+      onPlayerEliminated: (data) => this.handlePlayerEliminated(data),
+      onPlayerBoosting: (data) => this.handlePlayerBoosting(data),
+      onPlayerRespawned: (data) => this.handlePlayerRespawned(data)
     });
   }
 
@@ -309,6 +268,15 @@ class Game {
     this.localPlayer.position.y += this.localPlayer.velocity.y;
     this.localPlayer.position.z += this.localPlayer.velocity.z;
 
+    // Check for power-up collection
+    this.checkPowerUpCollections();
+
+    // Update shield status
+    if (this.localPlayer.hasShield && Date.now() > this.localPlayer.shieldEndTime) {
+      this.localPlayer.hasShield = false;
+      this.localPlayer.invincible = false;
+    }
+
     // Arena boundaries (half of arena size)
     const arenaHalfSize = this.renderer.arenaSize / 2;
 
@@ -396,10 +364,10 @@ class Game {
         // Reset velocity
         this.localPlayer.velocity = { x: 0, y: 0, z: 0 };
 
-        // Set invincibility timer
+        // Set invincibility timer (5 seconds)
         setTimeout(() => {
           this.localPlayer.invincible = false;
-        }, 3000);
+        }, this.spawnInvincibilityDuration);
       }
     }
   }
@@ -415,7 +383,7 @@ class Game {
     }
 
     // Check collision with each other player
-    Object.keys(players).forEach(id => {
+    Object.entries(players).forEach(([id, otherPlayer]) => {
       // Skip self
       if (id === playerId) {
         return;
@@ -425,8 +393,6 @@ class Game {
       if (this.lastCollisionTime[id] && Date.now() - this.lastCollisionTime[id] < this.collisionCooldown) {
         return;
       }
-
-      const otherPlayer = players[id];
 
       // Skip if other player is invincible
       if (otherPlayer.invincible) {
@@ -470,11 +436,72 @@ class Game {
     });
   }
 
+  // Check for power-up collections
+  checkPowerUpCollections() {
+    const powerUps = this.renderer.getPowerUps();
+    const collectionRadius = 15; // Adjust based on power-up size
+
+    powerUps.forEach(powerUp => {
+      // Skip if power-up is not active
+      if (!powerUp.active) return;
+
+      // Calculate distance to power-up
+      const dx = this.localPlayer.position.x - powerUp.position.x;
+      const dz = this.localPlayer.position.z - powerUp.position.z;
+      const distance = Math.sqrt(dx * dx + dz * dz);
+
+      if (distance < collectionRadius) {
+        // Collect the power-up
+        if (powerUp.type === 'health') {
+          // Health power-up
+          this.localPlayer.health = 100;
+          this.network.updateHealthUI(this.localPlayer.health);
+          console.log('Health restored to 100%');
+        } else if (powerUp.type === 'shield') {
+          // Shield power-up
+          this.localPlayer.hasShield = true;
+          this.localPlayer.invincible = true;
+          this.localPlayer.shieldEndTime = Date.now() + 15000; // 15 seconds
+          console.log('Shield activated for 15 seconds');
+        }
+
+        // Deactivate the power-up
+        this.renderer.deactivatePowerUp(powerUp.id);
+
+        // Send power-up collection to server
+        this.network.sendPowerUpCollection(powerUp.id, powerUp.type);
+      }
+    });
+  }
+
   // Stop the game loop
   stop() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
+    }
+  }
+
+  handlePlayerEliminated(data) {
+    if (data.id === this.localPlayer.id) {
+      // Local player eliminated
+      this.localPlayer.eliminated = true;
+      // Wait for respawn
+    } else {
+      // Remove eliminated player's model
+      this.removePlayer(data.id);
+    }
+  }
+
+  handlePlayerRespawned(data) {
+    if (data.id === this.localPlayer.id) {
+      // Reset local player
+      this.localPlayer.position = data.position;
+      this.localPlayer.health = data.health;
+      this.localPlayer.eliminated = false;
+    } else {
+      // Add or update respawned player
+      this.addOrUpdatePlayer(data);
     }
   }
 }

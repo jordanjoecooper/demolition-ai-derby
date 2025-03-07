@@ -8,7 +8,7 @@ class GameNetwork {
       this.socket = io();
       this.playerId = null;
       this.username = username;
-      this.players = {};
+      this.players = new Map();
 
       // Event callbacks
       this.onGameState = null;
@@ -17,8 +17,8 @@ class GameNetwork {
       this.onGameUpdate = null;
       this.onPlayerDamaged = null;
       this.onPlayerEliminated = null;
-      this.onRoundOver = null;
-      this.onNewRound = null;
+      this.onPlayerBoosting = null;
+      this.onPlayerRespawned = null;
 
       // Set up event listeners
       this.setupEventListeners();
@@ -48,7 +48,8 @@ class GameNetwork {
     // Receive initial game state
     this.socket.on('gameState', (data) => {
       console.log('Received initial game state:', data);
-      this.players = data.players;
+      // Convert players data to Map if it's not already
+      this.players = new Map(Object.entries(data.players));
 
       if (this.onGameState) {
         this.onGameState(data);
@@ -60,7 +61,7 @@ class GameNetwork {
 
     // New player joined
     this.socket.on('playerJoined', (data) => {
-      this.players[data.id] = data;
+      this.players.set(data.id, data);
 
       if (this.onPlayerJoined) {
         this.onPlayerJoined(data);
@@ -72,7 +73,7 @@ class GameNetwork {
 
     // Player left
     this.socket.on('playerLeft', (data) => {
-      delete this.players[data.id];
+      this.players.delete(data.id);
 
       if (this.onPlayerLeft) {
         this.onPlayerLeft(data);
@@ -84,7 +85,8 @@ class GameNetwork {
 
     // Game state update
     this.socket.on('gameUpdate', (data) => {
-      this.players = data.players;
+      // Convert players data to Map if it's not already
+      this.players = new Map(Object.entries(data.players));
 
       if (this.onGameUpdate) {
         this.onGameUpdate(data);
@@ -93,8 +95,10 @@ class GameNetwork {
 
     // Player damaged
     this.socket.on('playerDamaged', (data) => {
-      if (this.players[data.id]) {
-        this.players[data.id].health = data.health;
+      if (this.players.has(data.id)) {
+        const player = this.players.get(data.id);
+        player.health = data.health;
+        this.players.set(data.id, player);
       }
 
       if (this.onPlayerDamaged) {
@@ -109,52 +113,40 @@ class GameNetwork {
 
     // Player eliminated
     this.socket.on('playerEliminated', (data) => {
-      delete this.players[data.id];
+      this.players.delete(data.id);
 
       if (this.onPlayerEliminated) {
         this.onPlayerEliminated(data);
       }
 
+      // Show elimination message
+      this.showEliminationMessage(data.id === this.playerId);
+
       // Update player count UI
       this.updatePlayerCountUI();
     });
 
-    // Round over
-    this.socket.on('roundOver', (data) => {
-      if (this.onRoundOver) {
-        this.onRoundOver(data);
-      }
-
-      // Show round over UI
-      this.showRoundOverUI(data.winnerId);
-    });
-
-    // New round starting
-    this.socket.on('newRound', (data) => {
-      this.players = data.players;
-
-      if (this.onNewRound) {
-        this.onNewRound(data);
-      }
-
-      // Hide round over UI
-      this.hideRoundOverUI();
-
-      // Reset health UI
-      this.updateHealthUI(100);
-    });
-
     // Player boosting
     this.socket.on('playerBoosting', (data) => {
-      if (this.players[data.id]) {
-        this.players[data.id].boosting = true;
+      if (this.players.has(data.id)) {
+        const player = this.players.get(data.id);
+        player.boosting = true;
+        this.players.set(data.id, player);
 
         // Reset boosting state after a short delay
         setTimeout(() => {
-          if (this.players[data.id]) {
-            this.players[data.id].boosting = false;
+          if (this.players.has(data.id)) {
+            const player = this.players.get(data.id);
+            player.boosting = false;
+            this.players.set(data.id, player);
           }
         }, 2000);
+      }
+    });
+
+    this.socket.on('playerRespawned', (data) => {
+      if (this.onPlayerRespawned) {
+        this.onPlayerRespawned(data);
       }
     });
   }
@@ -180,24 +172,22 @@ class GameNetwork {
     this.socket.emit('boostActivated');
   }
 
+  // Send power-up collection to server
+  sendPowerUpCollection(powerUpId, type) {
+    this.socket.emit('powerUpCollected', {
+      id: powerUpId,
+      type: type,
+      playerId: this.playerId
+    });
+  }
+
   // Update player count UI
   updatePlayerCountUI() {
-    const playerCount = Object.keys(this.players).length;
+    const playerCount = this.players.size;
     const playerCountElement = document.getElementById('player-count');
 
     if (playerCountElement) {
-      playerCountElement.textContent = `Players: ${playerCount}`;
-    }
-
-    // Update round info based on player count
-    const roundInfoElement = document.getElementById('round-info');
-
-    if (roundInfoElement) {
-      if (playerCount < 2) {
-        roundInfoElement.textContent = 'Waiting for more players...';
-      } else {
-        roundInfoElement.textContent = 'Round in progress';
-      }
+      playerCountElement.textContent = `${playerCount} players`;
     }
   }
 
@@ -231,44 +221,15 @@ class GameNetwork {
     }
   }
 
-  // Show round over UI
-  showRoundOverUI(winnerId) {
-    const gameOverElement = document.getElementById('game-over');
-    const winnerMessageElement = document.getElementById('winner-message');
-    const countdownElement = document.getElementById('countdown');
-
-    if (gameOverElement && winnerMessageElement && countdownElement) {
-      // Set winner message
-      if (winnerId === this.playerId) {
-        winnerMessageElement.textContent = 'You won the round!';
-      } else {
-        winnerMessageElement.textContent = 'You were eliminated!';
-      }
-
-      // Show game over UI
-      gameOverElement.classList.remove('hidden');
-
-      // Start countdown
-      let countdown = 10;
-      countdownElement.textContent = countdown;
-
-      const countdownInterval = setInterval(() => {
-        countdown--;
-        countdownElement.textContent = countdown;
-
-        if (countdown <= 0) {
-          clearInterval(countdownInterval);
-        }
-      }, 1000);
-    }
-  }
-
-  // Hide round over UI
-  hideRoundOverUI() {
-    const gameOverElement = document.getElementById('game-over');
-
-    if (gameOverElement) {
-      gameOverElement.classList.add('hidden');
+  // Show elimination message
+  showEliminationMessage(isLocalPlayer) {
+    const messageElement = document.getElementById('elimination-message');
+    if (messageElement) {
+      messageElement.textContent = isLocalPlayer ? 'You were eliminated! Respawning...' : 'Player eliminated!';
+      messageElement.style.display = 'block';
+      setTimeout(() => {
+        messageElement.style.display = 'none';
+      }, 3000);
     }
   }
 
@@ -280,8 +241,8 @@ class GameNetwork {
     this.onGameUpdate = callbacks.onGameUpdate;
     this.onPlayerDamaged = callbacks.onPlayerDamaged;
     this.onPlayerEliminated = callbacks.onPlayerEliminated;
-    this.onRoundOver = callbacks.onRoundOver;
-    this.onNewRound = callbacks.onNewRound;
+    this.onPlayerBoosting = callbacks.onPlayerBoosting;
+    this.onPlayerRespawned = callbacks.onPlayerRespawned;
   }
 
   // Get player ID

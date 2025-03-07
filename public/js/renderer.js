@@ -35,11 +35,20 @@ class GameRenderer {
       this.obstacles = [];
       this.ramps = [];
 
+      // Power-ups collections
+      this.powerUps = {
+        health: [],
+        shield: []
+      };
+
       // Add lights
       this.addLights();
 
       // Create arena
       this.createArena();
+
+      // Add power-ups
+      this.addPowerUps();
 
       // Handle window resize
       window.addEventListener('resize', () => this.onWindowResize());
@@ -61,6 +70,9 @@ class GameRenderer {
 
       // Render once to initialize
       this.render();
+
+      // Set up power-up respawn timer
+      setInterval(() => this.updatePowerUps(), 10000); // Check every 10 seconds
 
     } catch (error) {
       console.error('Error initializing renderer:', error);
@@ -394,6 +406,9 @@ class GameRenderer {
     // Car body
     const carGroup = new THREE.Group();
 
+    // Store original color for reference
+    carGroup.originalColor = color;
+
     // Main body
     const bodyGeometry = new THREE.BoxGeometry(10, 3, 20);
     const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -493,9 +508,10 @@ class GameRenderer {
 
     // Create model if it doesn't exist
     if (!playerModel) {
-      // Generate a random color for the car
-      const color = Math.random() * 0xffffff;
-      playerModel = this.createCarModel(playerId, color);
+      // Use white color for all cars
+      playerModel = this.createCarModel(playerId, 0xFFFFFF);
+      this.scene.add(playerModel);
+      this.playerModels[playerId] = playerModel;
     }
 
     // Update position and rotation
@@ -511,6 +527,12 @@ class GameRenderer {
     if (isInvincible) {
       playerModel.traverse((child) => {
         if (child.isMesh && child !== playerModel.healthBar) {
+          // Change car color to blue for shield
+          if (child === playerModel.children[0]) { // Main body
+            child.material.color.setHex(0x0088ff); // Blue color
+            child.material.emissive.setHex(0x0044aa); // Blue glow
+            child.material.emissiveIntensity = 0.5;
+          }
           child.material.transparent = true;
           child.material.opacity = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
         }
@@ -518,6 +540,14 @@ class GameRenderer {
     } else {
       playerModel.traverse((child) => {
         if (child.isMesh) {
+          if (child === playerModel.children[0]) { // Main body
+            child.material.emissiveIntensity = 0;
+            // Reset to original color only if not boosting
+            if (!isBoosting) {
+              child.material.color.setHex(playerModel.originalColor || 0x00ff00);
+              child.material.emissive.setHex(0x000000);
+            }
+          }
           child.material.transparent = false;
           child.material.opacity = 1;
         }
@@ -525,13 +555,9 @@ class GameRenderer {
     }
 
     // Handle boosting effect
-    if (isBoosting) {
-      // Add boost particles or effect here
-      // For simplicity, we'll just change the car's color temporarily
+    if (isBoosting && !isInvincible) { // Don't override shield color
       playerModel.children[0].material.emissive.set(0xff5500);
       playerModel.children[0].material.emissiveIntensity = 0.5;
-    } else {
-      playerModel.children[0].material.emissiveIntensity = 0;
     }
   }
 
@@ -583,12 +609,317 @@ class GameRenderer {
     }
   }
 
+  // Add power-ups to the arena
+  addPowerUps() {
+    // Create health power-ups
+    this.createPowerUps('health', 3);
+
+    // Create shield power-ups
+    this.createPowerUps('shield', 3);
+  }
+
+  // Create power-ups of a specific type
+  createPowerUps(type, count) {
+    const isHealth = type === 'health';
+
+    // Define power-up appearance
+    const color = isHealth ? 0x00ff00 : 0x0088ff; // Green for health, blue for shield
+    const emissiveColor = isHealth ? 0x00aa00 : 0x0055aa;
+
+    for (let i = 0; i < count; i++) {
+      // Create power-up geometry
+      const geometry = new THREE.SphereGeometry(5, 16, 16);
+      const material = new THREE.MeshStandardMaterial({
+        color: color,
+        emissive: emissiveColor,
+        emissiveIntensity: 0.5,
+        metalness: 0.8,
+        roughness: 0.2
+      });
+
+      const powerUp = new THREE.Mesh(geometry, material);
+
+      // Find a valid position (not on obstacles or ramps)
+      let validPosition = false;
+      let x, z;
+
+      while (!validPosition) {
+        x = (Math.random() - 0.5) * (this.arenaSize - 100);
+        z = (Math.random() - 0.5) * (this.arenaSize - 100);
+
+        // Check distance from obstacles
+        let tooCloseToObstacle = false;
+        for (const obstacle of this.obstacles) {
+          const dx = x - obstacle.position.x;
+          const dz = z - obstacle.position.z;
+          const distToObstacle = Math.sqrt(dx * dx + dz * dz);
+          if (distToObstacle < 30) {
+            tooCloseToObstacle = true;
+            break;
+          }
+        }
+
+        // Check distance from ramps
+        let tooCloseToRamp = false;
+        for (const ramp of this.ramps) {
+          const dx = x - ramp.position.x;
+          const dz = z - ramp.position.z;
+          const distToRamp = Math.sqrt(dx * dx + dz * dz);
+          if (distToRamp < 50) {
+            tooCloseToRamp = true;
+            break;
+          }
+        }
+
+        // Check distance from other power-ups
+        let tooCloseToPowerUp = false;
+        for (const healthPowerUp of this.powerUps.health) {
+          if (healthPowerUp.active) {
+            const dx = x - healthPowerUp.position.x;
+            const dz = z - healthPowerUp.position.z;
+            const distToPowerUp = Math.sqrt(dx * dx + dz * dz);
+            if (distToPowerUp < 50) {
+              tooCloseToPowerUp = true;
+              break;
+            }
+          }
+        }
+
+        for (const shieldPowerUp of this.powerUps.shield) {
+          if (shieldPowerUp.active) {
+            const dx = x - shieldPowerUp.position.x;
+            const dz = z - shieldPowerUp.position.z;
+            const distToPowerUp = Math.sqrt(dx * dx + dz * dz);
+            if (distToPowerUp < 50) {
+              tooCloseToPowerUp = true;
+              break;
+            }
+          }
+        }
+
+        if (!tooCloseToObstacle && !tooCloseToRamp && !tooCloseToPowerUp) {
+          validPosition = true;
+        }
+      }
+
+      // Position the power-up
+      powerUp.position.set(x, 10, z);
+
+      // Add floating animation
+      powerUp.userData.baseY = 10;
+      powerUp.userData.animationOffset = Math.random() * Math.PI * 2;
+
+      // Add glow effect
+      const glowGeometry = new THREE.SphereGeometry(7, 16, 16);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.3
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      powerUp.add(glow);
+
+      // Add to scene
+      this.scene.add(powerUp);
+
+      // Store power-up data
+      this.powerUps[type].push({
+        mesh: powerUp,
+        position: { x, y: 10, z },
+        active: true,
+        type: type,
+        radius: 5,
+        respawnTime: 0
+      });
+    }
+  }
+
+  // Update power-ups (animation and respawn)
+  updatePowerUps() {
+    const now = Date.now();
+
+    // Check for power-ups that need to respawn
+    for (const type of ['health', 'shield']) {
+      for (const powerUp of this.powerUps[type]) {
+        // If inactive and respawn time has passed, respawn at a new location
+        if (!powerUp.active && now > powerUp.respawnTime) {
+          // Find a new valid position
+          let validPosition = false;
+          let x, z;
+
+          while (!validPosition) {
+            x = (Math.random() - 0.5) * (this.arenaSize - 100);
+            z = (Math.random() - 0.5) * (this.arenaSize - 100);
+
+            // Check distance from obstacles
+            let tooCloseToObstacle = false;
+            for (const obstacle of this.obstacles) {
+              const dx = x - obstacle.position.x;
+              const dz = z - obstacle.position.z;
+              const distToObstacle = Math.sqrt(dx * dx + dz * dz);
+              if (distToObstacle < 30) {
+                tooCloseToObstacle = true;
+                break;
+              }
+            }
+
+            // Check distance from ramps
+            let tooCloseToRamp = false;
+            for (const ramp of this.ramps) {
+              const dx = x - ramp.position.x;
+              const dz = z - ramp.position.z;
+              const distToRamp = Math.sqrt(dx * dx + dz * dz);
+              if (distToRamp < 50) {
+                tooCloseToRamp = true;
+                break;
+              }
+            }
+
+            // Check distance from other power-ups
+            let tooCloseToPowerUp = false;
+            for (const healthPowerUp of this.powerUps.health) {
+              if (healthPowerUp.active && healthPowerUp !== powerUp) {
+                const dx = x - healthPowerUp.position.x;
+                const dz = z - healthPowerUp.position.z;
+                const distToPowerUp = Math.sqrt(dx * dx + dz * dz);
+                if (distToPowerUp < 50) {
+                  tooCloseToPowerUp = true;
+                  break;
+                }
+              }
+            }
+
+            for (const shieldPowerUp of this.powerUps.shield) {
+              if (shieldPowerUp.active && shieldPowerUp !== powerUp) {
+                const dx = x - shieldPowerUp.position.x;
+                const dz = z - shieldPowerUp.position.z;
+                const distToPowerUp = Math.sqrt(dx * dx + dz * dz);
+                if (distToPowerUp < 50) {
+                  tooCloseToPowerUp = true;
+                  break;
+                }
+              }
+            }
+
+            if (!tooCloseToObstacle && !tooCloseToRamp && !tooCloseToPowerUp) {
+              validPosition = true;
+            }
+          }
+
+          // Update position
+          powerUp.position.x = x;
+          powerUp.position.z = z;
+          powerUp.mesh.position.set(x, 10, z);
+
+          // Make active again
+          powerUp.active = true;
+          powerUp.mesh.visible = true;
+        }
+      }
+    }
+  }
+
+  // Animate power-ups (floating effect)
+  animatePowerUps(time) {
+    for (const type of ['health', 'shield']) {
+      for (const powerUp of this.powerUps[type]) {
+        if (powerUp.active) {
+          // Floating animation
+          const y = powerUp.mesh.userData.baseY + Math.sin(time * 0.002 + powerUp.mesh.userData.animationOffset) * 2;
+          powerUp.mesh.position.y = y;
+
+          // Rotation animation
+          powerUp.mesh.rotation.y = time * 0.001;
+        }
+      }
+    }
+  }
+
+  // Check if a player collides with any power-up
+  checkPowerUpCollision(position, radius) {
+    for (const type of ['health', 'shield']) {
+      for (const powerUp of this.powerUps[type]) {
+        if (powerUp.active) {
+          // Simple distance-based collision
+          const dx = position.x - powerUp.position.x;
+          const dz = position.z - powerUp.position.z;
+          const distance = Math.sqrt(dx * dx + dz * dz);
+
+          // Collision threshold (sum of player radius and power-up radius)
+          const collisionThreshold = radius + powerUp.radius;
+
+          if (distance < collisionThreshold) {
+            // Deactivate power-up
+            powerUp.active = false;
+            powerUp.mesh.visible = false;
+
+            // Set respawn time (20 seconds)
+            powerUp.respawnTime = Date.now() + 20000;
+
+            return {
+              collision: true,
+              type: powerUp.type
+            };
+          }
+        }
+      }
+    }
+
+    return { collision: false };
+  }
+
+  // Get all power-ups
+  getPowerUps() {
+    const allPowerUps = [];
+    for (const type of ['health', 'shield']) {
+      this.powerUps[type].forEach((powerUp, index) => {
+        if (powerUp.active) {
+          allPowerUps.push({
+            ...powerUp,
+            id: `${type}_${index}`
+          });
+        }
+      });
+    }
+    return allPowerUps;
+  }
+
+  // Deactivate a power-up
+  deactivatePowerUp(id) {
+    const [type, index] = id.split('_');
+    if (this.powerUps[type] && this.powerUps[type][index]) {
+      const powerUp = this.powerUps[type][index];
+      powerUp.active = false;
+      powerUp.mesh.visible = false;
+      // Set respawn time to 5 seconds after shield expires (20 seconds total)
+      powerUp.respawnTime = Date.now() + 20000;
+    }
+  }
+
   // Render the scene
-  render() {
+  render(time) {
     try {
+      // Animate power-ups
+      if (time) {
+        this.animatePowerUps(time);
+      }
+
       this.renderer.render(this.scene, this.camera);
     } catch (error) {
       console.error('Error rendering scene:', error);
     }
+  }
+
+  addPlayer(playerId) {
+    let playerModel = this.playerModels[playerId];
+
+    if (!playerModel) {
+      // Use white color (0xFFFFFF) for all cars instead of random color
+      playerModel = this.createCarModel(playerId, 0xFFFFFF);
+      this.scene.add(playerModel);
+      this.playerModels[playerId] = playerModel;
+    }
+
+    return playerModel;
   }
 }
