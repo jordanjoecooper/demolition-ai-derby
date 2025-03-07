@@ -214,6 +214,20 @@ class Game {
           this.localPlayer.health = player.health;
           this.localPlayer.invincible = player.invincible;
         }
+
+        // Initialize other players
+        Object.entries(data.players).forEach(([id, player]) => {
+          if (id !== playerId && !player.eliminated) {
+            this.renderer.updatePlayer(
+              id,
+              player.position,
+              player.rotation,
+              player.health,
+              player.invincible,
+              player.boosting
+            );
+          }
+        });
       },
       onPlayerJoined: (data) => this.handlePlayerJoined(data),
       onPlayerLeft: (data) => this.handlePlayerLeft(data),
@@ -739,7 +753,7 @@ class Game {
   }
 
   handlePlayerRespawned(data) {
-    if (data.id === this.localPlayer.id) {
+    if (data.id === this.network.getPlayerId()) {
       // Reset local player
       this.localPlayer.position = data.position;
       this.localPlayer.health = data.health;
@@ -754,6 +768,7 @@ class Game {
         true, // Start with invincibility
         false // Not boosting
       );
+      console.log(`Player ${data.id} respawned`);
     }
   }
 
@@ -815,5 +830,25 @@ class Game {
     // Remove the player's car when they leave
     this.renderer.removePlayer(data.id);
     console.log(`Player ${data.id} left - removing their car`);
+  }
+
+  handlePlayerJoined(data) {
+    console.log('Player joined:', data);
+    // Skip if this is the local player
+    if (data.id === this.network.getPlayerId()) {
+      console.log('Local player joined - skipping renderer update');
+      return;
+    }
+
+    // Add the new player to the renderer
+    this.renderer.updatePlayer(
+      data.id,
+      data.position,
+      data.rotation || 0,
+      data.health || 100,
+      data.invincible || false,
+      data.boosting || false
+    );
+    console.log(`Added new player ${data.id} to renderer`);
   }
 }
