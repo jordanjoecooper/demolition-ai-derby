@@ -5,6 +5,9 @@ class Game {
     this.network = network;
     this.controls = controls;
 
+    // Initialize bot renderer
+    this.botRenderer = new LevelsBotRenderer(this.renderer.scene, this.renderer.assets);
+
     // Game state
     this.localPlayer = {
       position: { x: 0, y: 0, z: 0 },
@@ -17,7 +20,8 @@ class Game {
       lastObstacleCollision: 0,
       obstacleCooldown: 500, // ms
       hasShield: false,
-      shieldEndTime: 0
+      shieldEndTime: 0,
+      score: 0
     };
 
     // Test mode state
@@ -80,6 +84,9 @@ class Game {
     // Add invincibility properties
     this.localPlayer.invincibilityFading = false;
     this.localPlayer.invincibilityFadeStart = 0;
+
+    // Add bot-related network handlers
+    this.setupBotNetworkCallbacks();
   }
 
   createDeathScreen() {
@@ -92,51 +99,67 @@ class Game {
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.9);
+      background-color: rgba(0, 0, 0, 0.85);
       display: none;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 1000;
       color: #ff0000;
-      font-family: monospace;
+      font-family: Arial, sans-serif;
     `;
 
     // Add wasted text
     const wastedText = document.createElement('h1');
     wastedText.textContent = 'WASTED';
     wastedText.style.cssText = `
-      font-size: 72px;
-      margin-bottom: 20px;
-      text-shadow: 2px 2px 4px #000;
+      font-size: 96px;
+      margin-bottom: 30px;
+      text-shadow: 4px 4px 8px #000;
+      letter-spacing: 10px;
+      transform: scale(0);
+      transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     `;
 
     // Add skull emoji
     const skullArt = document.createElement('div');
     skullArt.textContent = '💀';
     skullArt.style.cssText = `
-      font-size: 120px;
-      margin: 20px 0;
-      text-shadow: 2px 2px 4px #000;
+      font-size: 150px;
+      margin: 30px 0;
+      text-shadow: 4px 4px 8px #000;
+      animation: bounce 2s infinite;
     `;
 
     // Add respawn button
     const respawnButton = document.createElement('button');
     respawnButton.textContent = 'RESPAWN';
     respawnButton.style.cssText = `
-      padding: 15px 30px;
-      font-size: 24px;
+      padding: 20px 40px;
+      font-size: 32px;
       background-color: #ff0000;
       color: #fff;
       border: none;
-      border-radius: 5px;
+      border-radius: 8px;
       cursor: pointer;
-      margin-top: 20px;
-      font-family: monospace;
-      transition: background-color 0.3s;
+      margin-top: 30px;
+      font-family: Arial, sans-serif;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px #000;
+      transition: all 0.3s ease;
+      transform: scale(0);
+      animation: pulse 2s infinite;
     `;
-    respawnButton.onmouseover = () => respawnButton.style.backgroundColor = '#cc0000';
-    respawnButton.onmouseout = () => respawnButton.style.backgroundColor = '#ff0000';
+
+    // Add button hover effects
+    respawnButton.onmouseover = () => {
+      respawnButton.style.backgroundColor = '#ff3333';
+      respawnButton.style.transform = 'scale(1.1)';
+    };
+    respawnButton.onmouseout = () => {
+      respawnButton.style.backgroundColor = '#ff0000';
+      respawnButton.style.transform = 'scale(1)';
+    };
     respawnButton.onclick = () => this.handleRespawnClick();
 
     // Add elements to death screen
@@ -146,19 +169,48 @@ class Game {
 
     // Add death screen to document
     document.body.appendChild(deathScreen);
+
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-20px); }
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Store references for animations
+    this.deathScreen = deathScreen;
+    this.wastedText = wastedText;
+    this.respawnButton = respawnButton;
   }
 
   showDeathScreen() {
-    const deathScreen = document.getElementById('death-screen');
-    if (deathScreen) {
-      deathScreen.style.display = 'flex';
+    if (this.deathScreen) {
+      this.deathScreen.style.display = 'flex';
+      // Trigger animations
+      setTimeout(() => {
+        if (this.wastedText) this.wastedText.style.transform = 'scale(1)';
+        if (this.respawnButton) this.respawnButton.style.transform = 'scale(1)';
+      }, 100);
     }
   }
 
   hideDeathScreen() {
-    const deathScreen = document.getElementById('death-screen');
-    if (deathScreen) {
-      deathScreen.style.display = 'none';
+    if (this.deathScreen) {
+      // Reset animations
+      if (this.wastedText) this.wastedText.style.transform = 'scale(0)';
+      if (this.respawnButton) this.respawnButton.style.transform = 'scale(0)';
+      // Hide after animation
+      setTimeout(() => {
+        this.deathScreen.style.display = 'none';
+      }, 500);
     }
   }
 
@@ -741,11 +793,16 @@ class Game {
   }
 
   handlePlayerEliminated(data) {
-    if (data.id === this.localPlayer.id) {
+    if (data.id === this.network.getPlayerId()) {
       // Local player eliminated
       this.localPlayer.eliminated = true;
+      this.localPlayer.health = 0;
       // Remove local player's car from the map
       this.renderer.removePlayer(data.id);
+      // Show death screen
+      this.showDeathScreen();
+      // Update health UI
+      this.network.updateHealthUI(0);
     } else {
       // Remove eliminated player's car from the map
       this.renderer.removePlayer(data.id);
@@ -774,24 +831,28 @@ class Game {
 
   // Handle player damage events
   handlePlayerDamaged(data) {
-    if (data.id === this.network.getPlayerId()) {
-      // Update local player health
-      this.localPlayer.health = data.health;
+    if (data.id === this.network.socket.id) {
+      this.localPlayer.health = Math.max(0, data.health);
+      
+      // Show damage indicator
+      const indicator = document.createElement('div');
+      indicator.className = 'damage-indicator';
+      if (data.type === 'machine_gun') {
+        indicator.classList.add('machine-gun-damage');
+      }
+      document.body.appendChild(indicator);
+      
+      setTimeout(() => {
+        indicator.remove();
+      }, 100);
+      
       // Update health UI
-      this.network.updateHealthUI(data.health);
-    }
-    // Update the renderer for the damaged player
-    const players = this.network.getPlayers();
-    const player = players[data.id];
-    if (player) {
-      this.renderer.updatePlayer(
-        data.id,
-        player.position,
-        player.rotation,
-        data.health,
-        player.invincible,
-        player.boosting
-      );
+      this.network.updateHealthUI(this.localPlayer.health);
+      
+      if (this.localPlayer.health <= 0 && !this.localPlayer.eliminated) {
+        this.localPlayer.eliminated = true;
+        this.showDeathScreen();
+      }
     }
   }
 
@@ -802,12 +863,14 @@ class Game {
       return;
     }
 
+    // Update bot if present in game state
+    if (data.bot) {
+      this.botRenderer.updateBot(data.bot);
+    }
+
     // Get current list of players
     const currentPlayers = new Set(Object.keys(data.players));
     const localPlayerId = this.network.getPlayerId();
-
-    // Log update details
-    console.log(`Game update: ${currentPlayers.size} players, local ID: ${localPlayerId}`);
 
     // Get list of players we're currently rendering
     const renderedPlayers = new Set(this.renderer.getPlayerIds());
@@ -815,9 +878,14 @@ class Game {
     // Remove players that are no longer in the game
     for (const id of renderedPlayers) {
       if (!currentPlayers.has(id)) {
-        console.log(`Removing player ${id} - no longer in game`);
         this.renderer.removePlayer(id);
       }
+    }
+
+    // Update player count display
+    const playerCount = document.getElementById('player-count');
+    if (playerCount) {
+      playerCount.textContent = `${currentPlayers.size} players`;
     }
 
     // Update other players
@@ -829,9 +897,6 @@ class Game {
           console.warn(`Invalid position data for player ${id}:`, player);
           return;
         }
-
-        // Log position updates (uncomment for debugging)
-        // console.log(`Updating player ${id} position:`, player.position);
 
         // Update player in renderer
         this.renderer.updatePlayer(
@@ -871,4 +936,73 @@ class Game {
     );
     console.log(`Added new player ${data.id} to renderer`);
   }
+
+  setupBotNetworkCallbacks() {
+    this.network.socket.on('botSpawned', (botState) => {
+      console.log('Bot spawned:', botState);
+      this.botRenderer.updateBot(botState);
+    });
+
+    this.network.socket.on('botUpdate', (botState) => {
+      this.botRenderer.updateBot(botState);
+    });
+
+    this.network.socket.on('botEliminated', (data) => {
+      console.log('Bot eliminated by player:', data.eliminatedBy);
+      this.botRenderer.playEliminationEffect();
+      
+      // Update local player's score if they eliminated the bot
+      if (data.eliminatedBy === this.network.socket.id) {
+        this.localPlayer.score += data.points;
+        // Show score popup
+        this.showScorePopup(data.points);
+      }
+    });
+  }
+
+  showScorePopup(points) {
+    const popup = document.createElement('div');
+    popup.className = 'score-popup';
+    popup.textContent = `+${points}`;
+    document.body.appendChild(popup);
+
+    // Animate and remove
+    setTimeout(() => {
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 1000);
+    }, 2000);
+  }
 }
+
+// Add CSS for new UI elements
+const style = document.createElement('style');
+style.textContent = `
+  .score-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffff00;
+    font-size: 24px;
+    font-weight: bold;
+    text-shadow: 0 0 5px #000;
+    opacity: 1;
+    transition: opacity 1s;
+    pointer-events: none;
+  }
+
+  .damage-indicator {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle, transparent 50%, rgba(255,0,0,0.2) 100%);
+    pointer-events: none;
+  }
+
+  .machine-gun-damage {
+    background: radial-gradient(circle, transparent 50%, rgba(255,255,0,0.2) 100%);
+  }
+`;
+document.head.appendChild(style);

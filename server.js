@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
+const { LevelsBot, BOT_CONSTANTS } = require('./LevelsBot');
 
 // Test mode flag (can be set via environment variable)
 const TEST_MODE = process.env.TEST_MODE === 'true';
@@ -14,8 +15,86 @@ const gameState = {
     width: 1000,
     height: 1000
   },
-  testMode: TEST_MODE
+  testMode: TEST_MODE,
+  bot: null,
+  lastBotEliminationTime: 0
 };
+
+// Initialize the Levels Bot
+function initializeBot() {
+  if (!gameState.bot || !gameState.bot.isAlive) {
+    gameState.bot = new LevelsBot(gameState.arena);
+    io.emit('botSpawned', gameState.bot.getState());
+    console.log('Levels Bot spawned');
+  }
+}
+
+// Check if bot should respawn
+function checkBotRespawn() {
+  if (!gameState.bot || !gameState.bot.isAlive) {
+    const now = Date.now();
+    if (now - gameState.lastBotEliminationTime >= BOT_CONSTANTS.RESPAWN_DELAY) {
+      initializeBot();
+    }
+  }
+}
+
+// Update bot state
+function updateBot(deltaTime) {
+  if (gameState.bot && gameState.bot.isAlive) {
+    const botUpdate = gameState.bot.update(gameState.players, deltaTime);
+    if (botUpdate) {
+      io.emit('botUpdate', botUpdate.data);
+      
+      // Handle machine gun firing
+      if (botUpdate.didFire) {
+        // Create muzzle flash effect
+        io.emit('botFired', {
+          position: gameState.bot.position,
+          rotation: gameState.bot.rotation
+        });
+        
+        // Check for hits on players
+        gameState.players.forEach((player, playerId) => {
+          if (player.invincible || player.eliminated) return;
+          
+          const dx = player.position.x - gameState.bot.position.x;
+          const dz = player.position.z - gameState.bot.position.z;
+          const distance = Math.sqrt(dx * dx + dz * dz);
+          
+          if (distance <= BOT_CONSTANTS.MACHINE_GUN_RANGE) {
+            // Calculate angle to player relative to bot's rotation
+            const angleToPlayer = Math.atan2(dx, dz);
+            const angleDiff = Math.abs(gameState.bot.normalizeAngle(angleToPlayer - gameState.bot.rotation));
+            
+            if (angleDiff <= (BOT_CONSTANTS.MACHINE_GUN_ARC * Math.PI / 180) / 2) {
+              // Player hit by machine gun
+              player.health -= BOT_CONSTANTS.MACHINE_GUN_DAMAGE;
+              
+              // Emit damage event
+              io.emit('playerDamaged', {
+                id: playerId,
+                damage: BOT_CONSTANTS.MACHINE_GUN_DAMAGE,
+                type: 'machine_gun',
+                health: player.health
+              });
+              
+              // Check if player was eliminated
+              if (player.health <= 0 && !player.eliminated) {
+                player.eliminated = true;
+                player.health = 0;
+                io.emit('playerEliminated', {
+                  id: playerId,
+                  reason: 'bot_gun'
+                });
+              }
+            }
+          }
+        });
+      }
+    }
+  }
+}
 
 // Constants
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
@@ -24,6 +103,9 @@ const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
+
+// Initialize the bot immediately when server starts
+initializeBot();
 
 // Serve static files from the public directory
 app.use(express.static(path.join(__dirname, 'public')));
@@ -36,11 +118,10 @@ app.get('/', (req, res) => {
 // Convert Map to object for sending over socket
 function getGameStateForClient() {
   const players = Object.fromEntries(gameState.players);
-  // console.log('Converting game state for client. Player count:', gameState.players.size);
-  // console.log('Converted players:', players);
   return {
     arena: gameState.arena,
-    players: players
+    players: players,
+    bot: gameState.bot ? gameState.bot.getState() : null
   };
 }
 
@@ -76,7 +157,8 @@ io.on('connection', (socket) => {
     rotation: 0,
     health: 100,
     invincible: true,
-    lastUpdateTime: Date.now()
+    lastUpdateTime: Date.now(),
+    velocity: { x: 0, z: 0 }
   });
 
   // Send test mode status to client
@@ -101,14 +183,74 @@ io.on('connection', (socket) => {
   // Handle player movement updates
   socket.on('playerUpdate', (data) => {
     if (gameState.players.has(socket.id)) {
-      // Update player position and rotation
       const player = gameState.players.get(socket.id);
+      
+      // Update player position and velocity
       player.position = data.position;
       player.rotation = data.rotation;
+      player.velocity = data.velocity || { x: 0, z: 0 };
       player.lastUpdateTime = Date.now();
-
-      // Log position update (uncomment for debugging)
-      // console.log(`Player ${socket.id} position updated:`, player.position);
+      
+      // Check collision with bot
+      if (gameState.bot && gameState.bot.isAlive) {
+        const dx = player.position.x - gameState.bot.position.x;
+        const dz = player.position.z - gameState.bot.position.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        if (distance < 10) { // Collision threshold
+          // Calculate relative velocity
+          const relativeVelX = (player.velocity?.x || 0) - (gameState.bot.velocity?.x || 0);
+          const relativeVelZ = (player.velocity?.z || 0) - (gameState.bot.velocity?.z || 0);
+          const relativeSpeed = Math.sqrt(relativeVelX * relativeVelX + relativeVelZ * relativeVelZ);
+          
+          // Calculate damage based on relative speed
+          const damage = Math.max(5, relativeSpeed * 20);
+          
+          // Damage both player and bot
+          if (!player.invincible) {
+            player.health -= Math.floor(damage * 0.3); // Player takes less damage from ramming
+            io.emit('playerDamaged', {
+              id: socket.id,
+              damage: Math.floor(damage * 0.3),
+              type: 'collision',
+              health: player.health
+            });
+          }
+          
+          // Bot takes full damage
+          const botEliminated = gameState.bot.takeDamage(damage);
+          
+          // Handle bot elimination
+          if (botEliminated) {
+            gameState.lastBotEliminationTime = Date.now();
+            io.emit('botEliminated', {
+              eliminatedBy: socket.id,
+              points: BOT_CONSTANTS.KILL_POINTS
+            });
+            
+            // Award points to the player
+            if (!player.score) player.score = 0;
+            player.score += BOT_CONSTANTS.KILL_POINTS;
+          }
+          
+          // Apply knockback to bot
+          const knockbackForce = 0.5;
+          gameState.bot.velocity.x += (relativeVelX * knockbackForce);
+          gameState.bot.velocity.z += (relativeVelZ * knockbackForce);
+          
+          // Check if player was eliminated
+          if (player.health <= 0) {
+            io.emit('playerEliminated', {
+              id: socket.id,
+              reason: 'collision'
+            });
+            gameState.players.delete(socket.id);
+          }
+        }
+      }
+      
+      // Broadcast updated game state
+      io.emit('gameUpdate', getGameStateForClient());
     }
   });
 
@@ -176,37 +318,43 @@ io.on('connection', (socket) => {
 
       // Broadcast elimination
       io.emit('playerEliminated', { id: data.id });
+    }
+  });
 
-      // Respawn player after 3 seconds
-      setTimeout(() => {
-        if (gameState.players.has(data.id)) {
-          const respawnPosition = {
-            x: Math.random() * gameState.arena.width - gameState.arena.width/2,
-            y: 0,
-            z: Math.random() * gameState.arena.height - gameState.arena.height/2
-          };
+  // Handle player respawn request
+  socket.on('requestRespawn', () => {
+    if (gameState.players.has(socket.id)) {
+      const player = gameState.players.get(socket.id);
+      
+      // Only allow respawn if player is eliminated
+      if (player.eliminated) {
+        const respawnPosition = {
+          x: Math.random() * gameState.arena.width - gameState.arena.width/2,
+          y: 0,
+          z: Math.random() * gameState.arena.height - gameState.arena.height/2
+        };
 
-          player.position = respawnPosition;
-          player.health = 100;
-          player.eliminated = false;
-          player.invincible = true;
+        player.position = respawnPosition;
+        player.health = 100;
+        player.eliminated = false;
+        player.invincible = true;
+        player.velocity = { x: 0, z: 0 };
 
-          // Emit respawn event
-          io.emit('playerRespawned', {
-            id: data.id,
-            position: respawnPosition,
-            health: 100
-          });
+        // Emit respawn event
+        io.emit('playerRespawned', {
+          id: socket.id,
+          position: respawnPosition,
+          health: 100
+        });
 
-          // Remove invincibility after 5 seconds
-          setTimeout(() => {
-            if (gameState.players.has(data.id)) {
-              player.invincible = false;
-              io.emit('gameUpdate', getGameStateForClient());
-            }
-          }, 5000);
-        }
-      }, 3000);
+        // Remove invincibility after 5 seconds
+        setTimeout(() => {
+          if (gameState.players.has(socket.id)) {
+            player.invincible = false;
+            io.emit('gameUpdate', getGameStateForClient());
+          }
+        }, 5000);
+      }
     }
   });
 
@@ -248,17 +396,26 @@ function handlePlayerDeath(playerId) {
   }
 }
 
-// Game update loop (20 updates per second)
+// Game loop
+const TICK_RATE = 60; // Updates per second
+let lastUpdateTime = Date.now();
+
 setInterval(() => {
-  checkInactivePlayers();  // Check for inactive players
-  const gameState = getGameStateForClient();
-  // Log number of players in update (uncomment for debugging)
-  // console.log('Broadcasting game update. Players:', Object.keys(gameState.players).length);
-  io.emit('gameUpdate', gameState);
-}, 50);
+  const now = Date.now();
+  const deltaTime = now - lastUpdateTime;
+  lastUpdateTime = now;
+  
+  checkBotRespawn();
+  updateBot(deltaTime);
+  checkInactivePlayers();
+  
+  // Broadcast game state to all players
+  io.emit('gameUpdate', getGameStateForClient());
+}, 1000 / TICK_RATE);
 
 // Start the server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log('Initializing Levels Bot...');
 });
