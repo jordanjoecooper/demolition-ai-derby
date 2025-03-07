@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demolition Derby</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <!-- Add error handling for CSS loading -->
+  <script>
+    // Check if styles loaded correctly
+    window.addEventListener('load', function() {
+      const styleSheets = document.styleSheets;
+      let stylesLoaded = false;
+
+      for (let i = 0; i < styleSheets.length; i++) {
+        if (styleSheets[i].href && styleSheets[i].href.includes('styles.css')) {
+          stylesLoaded = true;
+          break;
+        }
+      }
+
+      if (!stylesLoaded) {
+        console.error('Styles not loaded correctly');
+        document.body.innerHTML += '<div style="position:fixed; top:0; left:0; background:red; color:white; padding:10px; z-index:9999;">Error: Styles not loaded</div>';
+      }
+    });
+  </script>
+</head>
+<body>
+  <div id="game-container">
+    <!-- Loading screen - initially visible -->
+    <div id="loading-screen">
+      <h1>Demolition Derby</h1>
+      <div class="loader"></div>
+      <p>Loading game...</p>
+    </div>
+
+    <!-- Game UI - initially hidden -->
+    <div id="game-ui" class="hidden">
+      <div id="health-bar-container">
+        <div id="health-bar"></div>
+      </div>
+      <div id="boost-bar-container">
+        <div id="boost-bar"></div>
+      </div>
+      <div id="player-count">Players: 0</div>
+      <div id="round-info">Waiting for players...</div>
+    </div>
+
+    <!-- Game over screen - initially hidden -->
+    <div id="game-over" class="hidden">
+      <h2>Round Over!</h2>
+      <p id="winner-message"></p>
+      <p>Next round starting in <span id="countdown">10</span> seconds...</p>
+    </div>
+
+    <!-- Username modal - initially hidden, will be shown by JavaScript -->
+    <div id="username-modal" class="hidden">
+      <div class="modal-content">
+        <h2>Enter Your Username</h2>
+        <input type="text" id="username-input" placeholder="Enter username or play as guest" maxlength="15">
+        <button id="start-game-btn">Start Game</button>
+      </div>
+    </div>
+
+    <!-- Air time indicator - shown when player gets air time -->
+    <div id="air-time-indicator" class="air-time-indicator">AIR TIME!</div>
+
+    <!-- FPS Counter -->
+    <div id="fps-counter">FPS: 0</div>
+  </div>
+
+  <!-- Error display for debugging -->
+  <div id="error-display" style="display:none; position:fixed; bottom:0; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; max-width:100%; max-height:200px; overflow:auto; z-index:9999;"></div>
+
+  <!-- Libraries -->
+  <script>
+    // Error handling for script loading
+    window.onerror = function(message, source, lineno, colno, error) {
+      console.error('Error:', message, 'at', source, lineno, colno);
+      const errorDisplay = document.getElementById('error-display');
+      if (errorDisplay) {
+        errorDisplay.style.display = 'block';
+        errorDisplay.innerHTML += `<div>${message} at ${source}:${lineno}</div>`;
+      }
+      return false;
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
+
+  <!-- Game Scripts -->
+  <script src="js/renderer.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/network.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
