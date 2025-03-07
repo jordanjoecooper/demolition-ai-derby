@@ -2,7 +2,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM content loaded');
   // Initialize game components
-  const startGameBtn = document.getElementById('start-game-btn');
   const usernameInput = document.getElementById('username-input');
   const usernameModal = document.getElementById('username-modal');
   const loadingScreen = document.getElementById('loading-screen');
@@ -17,44 +16,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Game state
   let gameInitialized = false;
-  let username = '';
-  let progress = 0;
-  const loadingMessages = [
-    'Initializing Combat Systems',
-    'Calibrating Weapons',
-    'Loading Arena Assets',
-    'Establishing Neural Link',
-    'Activating Defense Matrix',
-    'Synchronizing Battle Grid'
+  const loadingSteps = [
+    { message: 'Initializing Combat Systems', progress: 15 },
+    { message: 'Calibrating Weapons', progress: 30 },
+    { message: 'Loading Arena Assets', progress: 50 },
+    { message: 'Establishing Neural Link', progress: 70 },
+    { message: 'Activating Defense Matrix', progress: 85 },
+    { message: 'Synchronizing Battle Grid', progress: 100 }
   ];
 
-  // Simulate loading progress
-  const loadingInterval = setInterval(() => {
-    progress += Math.random() * 15;
-    if (progress >= 100) {
-      progress = 100;
-      clearInterval(loadingInterval);
-      setTimeout(() => {
-        loadingScreen.style.opacity = '0';
-        setTimeout(() => {
-          loadingScreen.style.display = 'none';
-          showUsernameModal();
-        }, 1000);
-      }, 500);
-    }
-    loadingProgress.textContent = Math.floor(progress) + '%';
+  function updateLoadingProgress(step, substep = 0) {
+    const currentStep = loadingSteps[step];
+    const previousStep = step > 0 ? loadingSteps[step - 1] : { progress: 0 };
+    const progressRange = currentStep.progress - previousStep.progress;
+    const currentProgress = previousStep.progress + (progressRange * substep);
     
-    // Update loading message
-    const messageIndex = Math.floor((progress / 100) * loadingMessages.length);
+    loadingProgress.textContent = Math.floor(currentProgress) + '%';
+    
     const loadingMessage = document.querySelector('#loading-screen p:not(.loading-status)');
-    if (loadingMessage && messageIndex < loadingMessages.length) {
-      loadingMessage.textContent = loadingMessages[messageIndex] + '...';
+    if (loadingMessage) {
+      loadingMessage.textContent = currentStep.message + '...';
     }
-  }, 100);
+    
+    return currentProgress;
+  }
 
-  function showUsernameModal() {
-    usernameModal.classList.remove('hidden');
-    usernameInput.focus();
+  function showLoadingScreen() {
+    usernameModal.classList.add('hidden');
+    loadingScreen.classList.remove('hidden');
+    loadingScreen.style.opacity = '1';
+    updateLoadingProgress(0);
   }
 
   // Handle username submission
@@ -72,17 +63,14 @@ document.addEventListener('DOMContentLoaded', () => {
     usernameError.classList.add('hidden');
     usernameInput.classList.remove('error');
     
-    // Hide username modal and show loading screen
-    usernameModal.classList.add('hidden');
-    loadingScreen.classList.remove('hidden');
+    // Show loading screen and initialize game
+    showLoadingScreen();
 
     // Initialize game if not already done
     if (!gameInitialized) {
       console.log('Initializing game with username:', username);
-      setTimeout(() => {
-        initGame(username);
-        gameInitialized = true;
-      }, 100);
+      initGame(username);
+      gameInitialized = true;
     }
   });
 
@@ -93,55 +81,54 @@ document.addEventListener('DOMContentLoaded', () => {
       usernameInput.classList.remove('error');
     }
   });
-});
 
-// Initialize the game
-function initGame(username) {
-  console.log('initGame called');
+  // Initialize the game
+  function initGame(username) {
+    console.log('initGame called');
 
-  try {
-    // Initialize renderer
-    console.log('Creating renderer');
-    const renderer = new GameRenderer();
+    try {
+      // Initialize renderer
+      console.log('Creating renderer');
+      updateLoadingProgress(0, 1);
+      const renderer = new GameRenderer();
 
-    // Initialize network
-    console.log('Creating network');
-    const network = new GameNetwork(username);
+      // Initialize network
+      console.log('Creating network');
+      updateLoadingProgress(1, 1);
+      const network = new GameNetwork(username);
 
-    // Initialize controls
-    console.log('Creating controls');
-    const controls = new GameControls();
+      // Initialize controls
+      console.log('Creating controls');
+      updateLoadingProgress(2, 0.5);
+      const controls = new GameControls();
 
-    // Initialize game logic
-    console.log('Creating game');
-    const game = new Game(renderer, network, controls);
+      // Initialize game logic
+      console.log('Creating game');
+      updateLoadingProgress(3, 1);
+      const game = new Game(renderer, network, controls);
 
-    // Start the game loop
-    console.log('Starting game loop');
-    game.start();
+      // Start the game loop
+      console.log('Starting game loop');
+      updateLoadingProgress(4, 1);
+      game.start();
 
-    // Hide loading screen and show game UI after everything is loaded
-    console.log('Setting up onLoaded callback');
+      // Set up onLoaded callback for final initialization
+      renderer.onLoaded(() => {
+        console.log('Renderer loaded callback triggered');
+        updateLoadingProgress(5, 1); // Final loading step
+        setTimeout(() => {
+          document.getElementById('loading-screen').classList.add('hidden');
+          document.getElementById('game-ui').classList.remove('hidden');
+        }, 500); // Short delay to show 100% completion
+      });
 
-    renderer.onLoaded(() => {
-      console.log('Renderer loaded callback triggered');
-      document.getElementById('loading-screen').classList.add('hidden');
-      document.getElementById('game-ui').classList.remove('hidden');
-    });
-
-    // Force transition to game UI after a reasonable timeout (5 seconds)
-    setTimeout(() => {
-      console.log('Forcing transition to game UI');
-      document.getElementById('loading-screen').classList.add('hidden');
-      document.getElementById('game-ui').classList.remove('hidden');
-    }, 5000);
-  } catch (error) {
-    console.error('Error initializing game:', error);
-    // Show error on the loading screen
-    const loadingText = document.querySelector('#loading-screen p');
-    if (loadingText) {
-      loadingText.textContent = 'Error loading game: ' + error.message;
-      loadingText.style.color = 'red';
+    } catch (error) {
+      console.error('Error initializing game:', error);
+      const loadingText = document.querySelector('#loading-screen p');
+      if (loadingText) {
+        loadingText.textContent = 'Error loading game: ' + error.message;
+        loadingText.style.color = 'red';
+      }
     }
   }
-}
+});

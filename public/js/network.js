@@ -70,10 +70,24 @@ class GameNetwork {
 
     // New player joined
     this.socket.on('playerJoined', (data) => {
-      this.players[data.id] = data;
+      // Ensure player spawns in center
+      const centerPosition = { x: 0, y: 0, z: 0 };
+      this.players[data.id] = {
+        ...data,
+        position: centerPosition,
+        rotation: 0,
+        health: 100,
+        invincible: true
+      };
 
       if (this.onPlayerJoined) {
-        this.onPlayerJoined(data);
+        this.onPlayerJoined({
+          ...data,
+          position: centerPosition,
+          rotation: 0,
+          health: 100,
+          invincible: true
+        });
       }
 
       // Update player count UI

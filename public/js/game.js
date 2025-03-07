@@ -12,7 +12,7 @@ class Game {
 
     // Game state
     this.localPlayer = {
-      position: { x: 0, y: 0, z: 0 },
+      position: { x: 0, y: 0, z: 0 }, // Center of the map
       rotation: 0,
       velocity: { x: 0, y: 0, z: 0 },
       health: 100,
@@ -895,21 +895,27 @@ class Game {
 
   handlePlayerRespawned(data) {
     if (data.id === this.network.getPlayerId()) {
-      // Reset local player
-      this.localPlayer.position = data.position;
-      this.localPlayer.health = data.health;
-      this.localPlayer.eliminated = false;
-    } else {
-      // Add respawned player back to the game
-      this.renderer.updatePlayer(
-        data.id,
-        data.position,
-        data.rotation || 0,
-        data.health,
-        true, // Start with invincibility
-        false // Not boosting
-      );
-      console.log(`Player ${data.id} respawned`);
+      // Reset local player state
+      this.localPlayer.position = { x: 0, y: 0, z: 0 }; // Center of the map
+      this.localPlayer.rotation = 0;
+      this.localPlayer.velocity = { x: 0, y: 0, z: 0 };
+      this.localPlayer.health = 100;
+      this.localPlayer.invincible = true;
+      this.localPlayer.isInAir = false;
+      this.localPlayer.hasShield = false;
+
+      // Make player temporarily invincible
+      setTimeout(() => {
+        this.localPlayer.invincible = false;
+      }, 3000);
+
+      // Hide death screen if visible
+      this.hideDeathScreen();
+    }
+
+    // Update renderer for respawned player
+    if (this.renderer) {
+      this.renderer.updatePlayer(data.id, { x: 0, y: 0, z: 0 }, 0, 100, true);
     }
   }
 
