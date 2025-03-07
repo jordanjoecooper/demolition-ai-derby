@@ -20,6 +20,15 @@ class Game {
       shieldEndTime: 0
     };
 
+    // Test mode state
+    this.testMode = false;
+    this.lastKeyPresses = [];
+    this.keyPressTimeout = 300; // Time window for key sequence (ms)
+    this.lastKeyPressTime = 0;
+
+    // Create death screen
+    this.createDeathScreen();
+
     // Physics constants
     this.maxSpeed = 1.0;
     this.acceleration = 0.01;
@@ -62,6 +71,122 @@ class Game {
     }, this.spawnInvincibilityDuration);
   }
 
+  createDeathScreen() {
+    // Create death screen container
+    const deathScreen = document.createElement('div');
+    deathScreen.id = 'death-screen';
+    deathScreen.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.9);
+      display: none;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      color: #ff0000;
+      font-family: monospace;
+    `;
+
+    // Add wasted text
+    const wastedText = document.createElement('h1');
+    wastedText.textContent = 'WASTED';
+    wastedText.style.cssText = `
+      font-size: 72px;
+      margin-bottom: 20px;
+      text-shadow: 2px 2px 4px #000;
+    `;
+
+    // Add ASCII skull
+    const skullArt = document.createElement('pre');
+    skullArt.textContent = `
+      .-'---\`-.
+      /-'     '-\\
+     |           |
+     |  X     X  |
+     |     ^     |
+     |   '-|-'   |
+     \\     =     /
+      \`-..___.-'
+    `;
+    skullArt.style.cssText = `
+      font-size: 24px;
+      margin: 20px 0;
+      color: #fff;
+    `;
+
+    // Add respawn button
+    const respawnButton = document.createElement('button');
+    respawnButton.textContent = 'RESPAWN';
+    respawnButton.style.cssText = `
+      padding: 15px 30px;
+      font-size: 24px;
+      background-color: #ff0000;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      margin-top: 20px;
+      font-family: monospace;
+      transition: background-color 0.3s;
+    `;
+    respawnButton.onmouseover = () => respawnButton.style.backgroundColor = '#cc0000';
+    respawnButton.onmouseout = () => respawnButton.style.backgroundColor = '#ff0000';
+    respawnButton.onclick = () => this.handleRespawnClick();
+
+    // Add elements to death screen
+    deathScreen.appendChild(wastedText);
+    deathScreen.appendChild(skullArt);
+    deathScreen.appendChild(respawnButton);
+
+    // Add death screen to document
+    document.body.appendChild(deathScreen);
+  }
+
+  showDeathScreen() {
+    const deathScreen = document.getElementById('death-screen');
+    if (deathScreen) {
+      deathScreen.style.display = 'flex';
+    }
+  }
+
+  hideDeathScreen() {
+    const deathScreen = document.getElementById('death-screen');
+    if (deathScreen) {
+      deathScreen.style.display = 'none';
+    }
+  }
+
+  handleRespawnClick() {
+    // Hide death screen
+    this.hideDeathScreen();
+
+    // Reset position and health
+    this.localPlayer.position = {
+      x: (Math.random() - 0.5) * (this.renderer.arenaSize - 100),
+      y: 0,
+      z: (Math.random() - 0.5) * (this.renderer.arenaSize - 100)
+    };
+    this.localPlayer.health = 100;
+    this.localPlayer.eliminated = false;
+    this.localPlayer.invincible = true;
+    this.localPlayer.velocity = { x: 0, y: 0, z: 0 };
+
+    // Remove invincibility after 5 seconds
+    setTimeout(() => {
+      this.localPlayer.invincible = false;
+    }, 5000);
+
+    // Notify server of respawn
+    this.network.socket.emit('playerRespawned', {
+      id: this.network.getPlayerId(),
+      position: this.localPlayer.position
+    });
+  }
+
   // Set up network callbacks
   setupNetworkCallbacks() {
     this.network.setCallbacks({
@@ -82,8 +207,53 @@ class Game {
       onPlayerDamaged: (data) => this.handlePlayerDamaged(data),
       onPlayerEliminated: (data) => this.handlePlayerEliminated(data),
       onPlayerBoosting: (data) => this.handlePlayerBoosting(data),
-      onPlayerRespawned: (data) => this.handlePlayerRespawned(data)
+      onPlayerRespawned: (data) => this.handlePlayerRespawned(data),
+      onTestModeStatus: (data) => {
+        this.testMode = data.enabled;
+        console.log('Test mode:', this.testMode ? 'enabled' : 'disabled');
+        // Add test mode key listener when enabled
+        if (this.testMode) {
+          console.log('Adding test mode key listener');
+          // Remove any existing listener first to prevent duplicates
+          document.removeEventListener('keydown', this.handleTestModeKeys.bind(this));
+          document.addEventListener('keydown', this.handleTestModeKeys.bind(this));
+        }
+      }
     });
+  }
+
+  handleTestModeKeys(event) {
+    if (!this.testMode) return;
+
+    const now = Date.now();
+
+    // Clear old key presses that are outside the time window
+    while (this.lastKeyPresses.length > 0 &&
+           now - this.lastKeyPresses[0].time > this.keyPressTimeout) {
+      this.lastKeyPresses.shift();
+    }
+
+    // Add new key press
+    this.lastKeyPresses.push({
+      key: event.key.toLowerCase(),
+      time: now
+    });
+
+    // Check for 'dd' sequence
+    if (this.lastKeyPresses.length >= 2) {
+      const lastTwo = this.lastKeyPresses.slice(-2);
+      if (lastTwo[0].key === 'd' && lastTwo[1].key === 'd' &&
+          lastTwo[1].time - lastTwo[0].time <= this.keyPressTimeout) {
+        console.log('Test mode: "dd" sequence detected - triggering death');
+        this.localPlayer.health = 0;
+        this.network.updateHealthUI(0);
+        this.localPlayer.eliminated = true;
+        this.network.socket.emit('playerDied', { id: this.network.getPlayerId() });
+        this.showDeathScreen();
+        // Clear the sequence after triggering
+        this.lastKeyPresses = [];
+      }
+    }
   }
 
   // Start the game loop
@@ -426,7 +596,7 @@ class Game {
           const normalZ = dz / distance;
 
           // Apply stronger bounce force
-          const bounceForce = Math.min(1.2, 0.8 + impactForce); // Increase bounce with impact
+          const bounceForce = Math.min(1.2, 0.8 + impactForce);
           this.localPlayer.velocity.x = normalX * bounceForce * Math.abs(this.localPlayer.velocity.x);
           this.localPlayer.velocity.z = normalZ * bounceForce * Math.abs(this.localPlayer.velocity.z);
 
@@ -443,8 +613,28 @@ class Game {
             this.localPlayer.position.z += normalZ * overlap * 0.5;
           }
 
-          // Calculate damage based on impact force
-          const damage = Math.min(Math.floor(impactForce * 20), 50); // Increased damage multiplier
+          // Calculate speeds
+          const localSpeed = Math.sqrt(
+            this.localPlayer.velocity.x * this.localPlayer.velocity.x +
+            this.localPlayer.velocity.z * this.localPlayer.velocity.z
+          );
+          const otherSpeed = Math.sqrt(
+            (otherPlayer.velocity?.x || 0) * (otherPlayer.velocity?.x || 0) +
+            (otherPlayer.velocity?.z || 0) * (otherPlayer.velocity?.z || 0)
+          );
+
+          // Calculate damage based on relative speed
+          const baseDamage = Math.min(Math.floor(impactForce * 20), 50);
+          let damage;
+
+          if (localSpeed > otherSpeed) {
+            // Local player is faster, take less damage
+            damage = Math.floor(baseDamage * 0.3);
+          } else {
+            // Local player is slower, take more damage
+            damage = Math.floor(baseDamage * 1.2);
+          }
+
           this.localPlayer.health = Math.max(0, this.localPlayer.health - damage);
 
           // Update health UI
@@ -455,22 +645,8 @@ class Game {
             this.localPlayer.eliminated = true;
             this.network.socket.emit('playerDied', { id: playerId });
 
-            // Reset position and health after a delay
-            setTimeout(() => {
-              this.localPlayer.position = {
-                x: (Math.random() - 0.5) * (this.renderer.arenaSize - 100),
-                y: 0,
-                z: (Math.random() - 0.5) * (this.renderer.arenaSize - 100)
-              };
-              this.localPlayer.health = 100;
-              this.localPlayer.eliminated = false;
-              this.localPlayer.invincible = true;
-
-              // Remove invincibility after 5 seconds
-              setTimeout(() => {
-                this.localPlayer.invincible = false;
-              }, 5000);
-            }, 3000);
+            // Show death screen
+            this.showDeathScreen();
           }
         }
       }

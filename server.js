@@ -3,6 +3,10 @@ const http = require('http');
 const socketIO = require('socket.io');
 const path = require('path');
 
+// Test mode flag (can be set via environment variable)
+const TEST_MODE = process.env.TEST_MODE === 'true';
+console.log('Test mode:', TEST_MODE ? 'enabled' : 'disabled');
+
 // Game state
 const gameState = {
   players: new Map(),
@@ -10,6 +14,7 @@ const gameState = {
     width: 1000,
     height: 1000
   },
+  testMode: TEST_MODE
 };
 
 // Constants
@@ -74,6 +79,9 @@ io.on('connection', (socket) => {
     lastUpdateTime: Date.now()
   });
 
+  // Send test mode status to client
+  socket.emit('testModeStatus', { enabled: TEST_MODE });
+
   console.log('Player added. Total players:', gameState.players.size);
 
   // Set initial invincibility
@@ -111,18 +119,33 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Calculate damage based on impact force
-    const damage = Math.min(Math.floor(impactForce * 20), 50); // Match client damage calculation
+    // Get both players
+    const attacker = gameState.players.get(socket.id);
+    const target = gameState.players.get(targetId);
 
-    // Apply damage to both players
-    const applyDamageToPlayer = (playerId) => {
-      if (gameState.players.has(playerId)) {
-        const player = gameState.players.get(playerId);
+    if (!attacker || !target) return;
+
+    // Calculate speeds (if velocity data is available)
+    const attackerSpeed = attacker.velocity ?
+      Math.sqrt(attacker.velocity.x * attacker.velocity.x + attacker.velocity.z * attacker.velocity.z) : 0;
+    const targetSpeed = target.velocity ?
+      Math.sqrt(target.velocity.x * target.velocity.x + target.velocity.z * target.velocity.z) : 0;
+
+    // Calculate base damage
+    const baseDamage = Math.min(Math.floor(impactForce * 20), 50);
+
+    // Apply damage to both players based on their relative speeds
+    const applyDamageToPlayer = (player, isSlower) => {
+      if (gameState.players.has(player.id)) {
+        // Calculate damage modifier based on speed difference
+        const damageMultiplier = isSlower ? 1.2 : 0.3;
+        const damage = Math.floor(baseDamage * damageMultiplier);
+
         player.health = Math.max(0, player.health - damage);
 
         // Broadcast the damage to all players
         io.emit('playerDamaged', {
-          id: playerId,
+          id: player.id,
           health: player.health,
           damage: damage
         });
@@ -131,45 +154,14 @@ io.on('connection', (socket) => {
         if (player.health <= 0 && !player.eliminated) {
           player.eliminated = true;
           player.health = 0;
-          io.emit('playerEliminated', { id: playerId });
-
-          // Respawn player after 3 seconds
-          setTimeout(() => {
-            if (gameState.players.has(playerId)) {
-              const respawnPosition = {
-                x: Math.random() * gameState.arena.width - gameState.arena.width/2,
-                y: 0,
-                z: Math.random() * gameState.arena.height - gameState.arena.height/2
-              };
-
-              player.position = respawnPosition;
-              player.health = 100;
-              player.eliminated = false;
-              player.invincible = true;
-
-              // Emit respawn event
-              io.emit('playerRespawned', {
-                id: playerId,
-                position: respawnPosition,
-                health: 100
-              });
-
-              // Remove invincibility after 5 seconds
-              setTimeout(() => {
-                if (gameState.players.has(playerId)) {
-                  player.invincible = false;
-                  io.emit('gameUpdate', getGameStateForClient());
-                }
-              }, 5000);
-            }
-          }, 3000);
+          io.emit('playerEliminated', { id: player.id });
         }
       }
     };
 
-    // Apply damage to both players involved in the collision
-    applyDamageToPlayer(socket.id);    // Damage to the player who initiated the collision
-    applyDamageToPlayer(targetId);     // Damage to the player who was hit
+    // Apply damage based on relative speeds
+    applyDamageToPlayer(attacker, attackerSpeed <= targetSpeed);
+    applyDamageToPlayer(target, targetSpeed <= attackerSpeed);
   });
 
   // Handle player death

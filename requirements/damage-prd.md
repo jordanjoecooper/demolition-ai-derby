@@ -23,14 +23,14 @@ Purpose: Encourages careful driving while maintaining the fast-paced, aggressive
 Health Icons:
 Effect: Collecting a health icon fully restores the car’s health to 100 HP.
 
-Spawning: 2-3 health icons appear at random locations on the map and respawn at new random spots 30 seconds after being collected.
+Spawning: 3 health icons appear at random locations on the map and respawn at new random spots 30 seconds after being collected.
 
 Purpose: Provides players a way to recover, encouraging exploration and strategic movement.
 
 Shield Icons:
-Effect: Collecting a shield icon grants invincibility (no damage taken) for 1 minute.
+Effect: Collecting a shield icon grants invincibility (no damage taken) for 30 seconds.
 
-Spawning: 2-3 shield icons spawn randomly on the map and respawn 30 seconds after being collected.
+Spawning: 3 shield icons spawn randomly on the map and respawn 30 seconds after being collected.
 
 Purpose: Offers temporary protection, adding a tactical layer to gameplay (duration can be adjusted later if too strong).
 

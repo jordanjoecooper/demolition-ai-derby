@@ -19,6 +19,7 @@ class GameNetwork {
       this.onPlayerEliminated = null;
       this.onPlayerBoosting = null;
       this.onPlayerRespawned = null;
+      this.onTestModeStatus = null;
 
       // Set up event listeners
       this.setupEventListeners();
@@ -38,6 +39,13 @@ class GameNetwork {
 
       // Send username to server (could be extended in the future)
       // this.socket.emit('setUsername', { username: this.username });
+    });
+
+    // Test mode status
+    this.socket.on('testModeStatus', (data) => {
+      if (this.onTestModeStatus) {
+        this.onTestModeStatus(data);
+      }
     });
 
     // Connection error
@@ -260,6 +268,7 @@ class GameNetwork {
     this.onPlayerEliminated = callbacks.onPlayerEliminated;
     this.onPlayerBoosting = callbacks.onPlayerBoosting;
     this.onPlayerRespawned = callbacks.onPlayerRespawned;
+    this.onTestModeStatus = callbacks.onTestModeStatus;
   }
 
   // Get player ID
