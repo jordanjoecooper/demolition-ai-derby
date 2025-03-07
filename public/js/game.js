@@ -1122,7 +1122,7 @@ class Game {
     // Convert players to array for sorting
     const playerArray = Object.entries(players).map(([id, player]) => ({
       id,
-      name: player.username || `Player ${id.slice(0, 4)}`,
+      name: player.username || id.slice(0, 4),  // Just use username or ID prefix
       kills: player.kills || 0,
       trickScore: player.trickScore || 0,
       survivalTime: (Date.now() - (player.joinTime || Date.now())) / 1000
@@ -1168,7 +1168,14 @@ class Game {
     const playerId = this.network.getPlayerId();
     const players = this.network.getPlayers();
     if (players[playerId]) {
-      players[playerId].trickScore = (players[playerId].trickScore || 0) + Math.floor(airTime * 100);
+      const currentScore = players[playerId].trickScore || 0;
+      const points = Math.floor(airTime * 100);
+      players[playerId].trickScore = currentScore + points;
+      
+      // Update the network with the new score
+      this.network.socket.emit('updateScore', {
+        trickScore: players[playerId].trickScore
+      });
     }
   }
 

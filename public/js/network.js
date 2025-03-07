@@ -173,6 +173,19 @@ class GameNetwork {
         this.onPlayerRespawned(data);
       }
     });
+
+    // Handle score updates
+    this.socket.on('scoreUpdate', (data) => {
+      const players = this.getPlayers();
+      if (players[data.id]) {
+        if (data.trickScore !== undefined) {
+          players[data.id].trickScore = data.trickScore;
+        }
+        if (data.kills !== undefined) {
+          players[data.id].kills = data.kills;
+        }
+      }
+    });
   }
 
   // Send player position update to server
@@ -291,5 +304,10 @@ class GameNetwork {
   // Get all players
   getPlayers() {
     return this.players;
+  }
+
+  // Add method to send score updates
+  sendScoreUpdate(scoreData) {
+    this.socket.emit('updateScore', scoreData);
   }
 }
