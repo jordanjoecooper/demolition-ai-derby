@@ -8,7 +8,7 @@ class GameNetwork {
       this.socket = io();
       this.playerId = null;
       this.username = username;
-      this.players = new Map();
+      this.players = {};  // Change back to object since server sends object format
 
       // Event callbacks
       this.onGameState = null;
@@ -48,8 +48,9 @@ class GameNetwork {
     // Receive initial game state
     this.socket.on('gameState', (data) => {
       console.log('Received initial game state:', data);
-      // Convert players data to Map if it's not already
-      this.players = new Map(Object.entries(data.players));
+      console.log('Players data type:', typeof data.players);
+      console.log('Players data:', data.players);
+      this.players = data.players || {};
 
       if (this.onGameState) {
         this.onGameState(data);
@@ -61,7 +62,7 @@ class GameNetwork {
 
     // New player joined
     this.socket.on('playerJoined', (data) => {
-      this.players.set(data.id, data);
+      this.players[data.id] = data;
 
       if (this.onPlayerJoined) {
         this.onPlayerJoined(data);
@@ -73,7 +74,7 @@ class GameNetwork {
 
     // Player left
     this.socket.on('playerLeft', (data) => {
-      this.players.delete(data.id);
+      delete this.players[data.id];
 
       if (this.onPlayerLeft) {
         this.onPlayerLeft(data);
@@ -85,20 +86,24 @@ class GameNetwork {
 
     // Game state update
     this.socket.on('gameUpdate', (data) => {
-      // Convert players data to Map if it's not already
-      this.players = new Map(Object.entries(data.players));
+      console.log('Game update received:', data);
+      console.log('Players in update:', data.players);
+      this.players = data.players || {};
 
       if (this.onGameUpdate) {
         this.onGameUpdate(data);
       }
+
+      // Update player count UI after each game update
+      this.updatePlayerCountUI();
     });
 
     // Player damaged
     this.socket.on('playerDamaged', (data) => {
-      if (this.players.has(data.id)) {
-        const player = this.players.get(data.id);
+      if (this.players.hasOwnProperty(data.id)) {
+        const player = this.players[data.id];
         player.health = data.health;
-        this.players.set(data.id, player);
+        this.players[data.id] = player;
       }
 
       if (this.onPlayerDamaged) {
@@ -113,14 +118,25 @@ class GameNetwork {
 
     // Player eliminated
     this.socket.on('playerEliminated', (data) => {
-      this.players.delete(data.id);
+      delete this.players[data.id];
 
       if (this.onPlayerEliminated) {
         this.onPlayerEliminated(data);
       }
 
-      // Show elimination message
-      this.showEliminationMessage(data.id === this.playerId);
+      // Show elimination message with reason
+      const isLocalPlayer = data.id === this.playerId;
+      let message;
+      if (isLocalPlayer) {
+        message = data.reason === 'inactivity' ?
+          'You were eliminated due to inactivity!' :
+          'You were eliminated! Respawning...';
+      } else {
+        message = data.reason === 'inactivity' ?
+          'Player eliminated due to inactivity!' :
+          'Player eliminated!';
+      }
+      this.showEliminationMessage(message);
 
       // Update player count UI
       this.updatePlayerCountUI();
@@ -128,17 +144,17 @@ class GameNetwork {
 
     // Player boosting
     this.socket.on('playerBoosting', (data) => {
-      if (this.players.has(data.id)) {
-        const player = this.players.get(data.id);
+      if (this.players.hasOwnProperty(data.id)) {
+        const player = this.players[data.id];
         player.boosting = true;
-        this.players.set(data.id, player);
+        this.players[data.id] = player;
 
         // Reset boosting state after a short delay
         setTimeout(() => {
-          if (this.players.has(data.id)) {
-            const player = this.players.get(data.id);
+          if (this.players.hasOwnProperty(data.id)) {
+            const player = this.players[data.id];
             player.boosting = false;
-            this.players.set(data.id, player);
+            this.players[data.id] = player;
           }
         }, 2000);
       }
@@ -183,7 +199,8 @@ class GameNetwork {
 
   // Update player count UI
   updatePlayerCountUI() {
-    const playerCount = this.players.size;
+    const playerCount = Object.keys(this.players || {}).length;
+    console.log('Updating player count:', playerCount, 'Players:', this.players);
     const playerCountElement = document.getElementById('player-count');
 
     if (playerCountElement) {
@@ -222,10 +239,10 @@ class GameNetwork {
   }
 
   // Show elimination message
-  showEliminationMessage(isLocalPlayer) {
+  showEliminationMessage(message) {
     const messageElement = document.getElementById('elimination-message');
     if (messageElement) {
-      messageElement.textContent = isLocalPlayer ? 'You were eliminated! Respawning...' : 'Player eliminated!';
+      messageElement.textContent = message;
       messageElement.style.display = 'block';
       setTimeout(() => {
         messageElement.style.display = 'none';

@@ -408,7 +408,7 @@ class Game {
       const collisionThreshold = this.carRadius * 2; // Adjust based on car size
 
       if (distance < collisionThreshold) {
-        // Calculate impact force based on velocity
+        // Calculate impact force based on relative velocity
         const relativeVelocityX = this.localPlayer.velocity.x - (otherPlayer.velocity?.x || 0);
         const relativeVelocityZ = this.localPlayer.velocity.z - (otherPlayer.velocity?.z || 0);
         const impactForce = Math.sqrt(relativeVelocityX * relativeVelocityX + relativeVelocityZ * relativeVelocityZ);
@@ -421,15 +421,56 @@ class Game {
           // Set collision cooldown
           this.lastCollisionTime[id] = Date.now();
 
-          // Apply physics response (bounce)
-          const bounceForce = 0.8;
-          this.localPlayer.velocity.x -= dx * bounceForce;
-          this.localPlayer.velocity.z -= dz * bounceForce;
+          // Calculate normalized collision vector
+          const normalX = dx / distance;
+          const normalZ = dz / distance;
 
-          // Add a small upward velocity for more dramatic collisions
+          // Apply stronger bounce force
+          const bounceForce = Math.min(1.2, 0.8 + impactForce); // Increase bounce with impact
+          this.localPlayer.velocity.x = normalX * bounceForce * Math.abs(this.localPlayer.velocity.x);
+          this.localPlayer.velocity.z = normalZ * bounceForce * Math.abs(this.localPlayer.velocity.z);
+
+          // Add upward velocity for more dramatic collisions
           if (impactForce > 0.5 && !this.localPlayer.isInAir) {
-            this.localPlayer.velocity.y = 0.2;
+            this.localPlayer.velocity.y = Math.min(0.3, impactForce * 0.2);
             this.localPlayer.isInAir = true;
+          }
+
+          // Separate the cars to prevent overlap
+          const overlap = collisionThreshold - distance;
+          if (overlap > 0) {
+            this.localPlayer.position.x += normalX * overlap * 0.5;
+            this.localPlayer.position.z += normalZ * overlap * 0.5;
+          }
+
+          // Calculate damage based on impact force
+          const damage = Math.min(Math.floor(impactForce * 20), 50); // Increased damage multiplier
+          this.localPlayer.health = Math.max(0, this.localPlayer.health - damage);
+
+          // Update health UI
+          this.network.updateHealthUI(this.localPlayer.health);
+
+          // Check for death
+          if (this.localPlayer.health <= 0 && !this.localPlayer.eliminated) {
+            this.localPlayer.eliminated = true;
+            this.network.socket.emit('playerDied', { id: playerId });
+
+            // Reset position and health after a delay
+            setTimeout(() => {
+              this.localPlayer.position = {
+                x: (Math.random() - 0.5) * (this.renderer.arenaSize - 100),
+                y: 0,
+                z: (Math.random() - 0.5) * (this.renderer.arenaSize - 100)
+              };
+              this.localPlayer.health = 100;
+              this.localPlayer.eliminated = false;
+              this.localPlayer.invincible = true;
+
+              // Remove invincibility after 5 seconds
+              setTimeout(() => {
+                this.localPlayer.invincible = false;
+              }, 5000);
+            }, 3000);
           }
         }
       }
@@ -503,5 +544,46 @@ class Game {
       // Add or update respawned player
       this.addOrUpdatePlayer(data);
     }
+  }
+
+  // Handle player damage events
+  handlePlayerDamaged(data) {
+    if (data.id === this.network.getPlayerId()) {
+      // Update local player health
+      this.localPlayer.health = data.health;
+      // Update health UI
+      this.network.updateHealthUI(data.health);
+    }
+    // Update the renderer for the damaged player
+    const players = this.network.getPlayers();
+    const player = players[data.id];
+    if (player) {
+      this.renderer.updatePlayer(
+        data.id,
+        player.position,
+        player.rotation,
+        data.health,
+        player.invincible,
+        player.boosting
+      );
+    }
+  }
+
+  // Handle game state updates
+  handleGameUpdate(data) {
+    // Update other players
+    Object.entries(data.players).forEach(([id, player]) => {
+      // Skip local player as we handle their position locally
+      if (id !== this.network.getPlayerId()) {
+        this.renderer.updatePlayer(
+          id,
+          player.position,
+          player.rotation,
+          player.health,
+          player.invincible,
+          player.boosting
+        );
+      }
+    });
   }
 }
