@@ -4,17 +4,19 @@ const BOT_CONSTANTS = {
     MACHINE_GUN_DAMAGE: 5,
     MACHINE_GUN_FIRE_RATE: 500, // 2 shots per second (in ms)
     MACHINE_GUN_ARC: 45, // degrees
-    DETECTION_RANGE: 200,
-    MINIMUM_ATTACK_RANGE: 30, // Minimum range to start attacking
-    OPTIMAL_ATTACK_RANGE: 40, // Optimal range for attacking
-    RESPAWN_DELAY: 60000, // 60 seconds in ms
+    DETECTION_RANGE: 150, // Reduced from 200 to give players more space
+    MINIMUM_ATTACK_RANGE: 30,
+    OPTIMAL_ATTACK_RANGE: 40,
+    TARGET_MEMORY_TIME: 3000,
+    LINE_OF_SIGHT_CHECK_INTERVAL: 100,
+    RESPAWN_DELAY: 60000,
     KILL_POINTS: 100,
-    MOVEMENT_SPEED: 7.5, // Reduced by 50% from 15
-    ROTATION_SPEED: 0.05,
-    MAX_VELOCITY: 0.15, // Reduced by 50% from 0.3
+    MOVEMENT_SPEED: 3, // Further reduced from 5
+    ROTATION_SPEED: 0.03, // Reduced from 0.05 to make turning slower
+    MAX_VELOCITY: 0.07, // Further reduced from 0.1
     BOUNDARY_MARGIN: 100,
-    FRICTION: 0.92,
-    CORNER_DETECTION_MARGIN: 150 // Margin for detecting corners
+    FRICTION: 0.94, // Increased from 0.92 to make it slow down faster
+    CORNER_DETECTION_MARGIN: 150
 };
 
 class LevelsBot {
@@ -25,6 +27,9 @@ class LevelsBot {
         this.state = 'idle';
         this.lastFireTime = 0;
         this.targetPlayer = null;
+        this.lastTargetSightTime = 0;
+        this.lastLineOfSightCheck = 0;
+        this.hasLineOfSight = false;
         this.idleWanderDirection = Math.random() * Math.PI * 2;
         this.lastDirectionChange = Date.now();
         this.velocity = { x: 0, z: 0 };
@@ -61,11 +66,11 @@ class LevelsBot {
                         distToEdgeZ < BOT_CONSTANTS.CORNER_DETECTION_MARGIN;
 
         if (inCorner) {
-            // If in corner, head towards arena center with increased speed
+            // If in corner, head towards arena center with slightly increased speed
             const angleToCenter = Math.atan2(-this.position.x, -this.position.z);
             const centerAngleDiff = this.normalizeAngle(angleToCenter - this.rotation);
-            this.rotation += Math.sign(centerAngleDiff) * Math.min(Math.abs(centerAngleDiff), BOT_CONSTANTS.ROTATION_SPEED * 2);
-            this.moveForward(deltaTime, 1.5); // Move faster to escape corner
+            this.rotation += Math.sign(centerAngleDiff) * Math.min(Math.abs(centerAngleDiff), BOT_CONSTANTS.ROTATION_SPEED * 1.5);
+            this.moveForward(deltaTime, 0.8); // Reduced from 1.5
             return;
         }
 
@@ -86,7 +91,7 @@ class LevelsBot {
         const dz = this.nextWaypoint.z - this.position.z;
         const targetAngle = Math.atan2(dx, dz);
 
-        // Rotate towards waypoint
+        // Rotate towards waypoint more slowly
         const angleDiff = this.normalizeAngle(targetAngle - this.rotation);
         this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED);
 
@@ -95,11 +100,11 @@ class LevelsBot {
             // If near edge, turn towards center more aggressively
             const angleToCenter = Math.atan2(-this.position.x, -this.position.z);
             const centerAngleDiff = this.normalizeAngle(angleToCenter - this.rotation);
-            this.rotation += Math.sign(centerAngleDiff) * Math.min(Math.abs(centerAngleDiff), BOT_CONSTANTS.ROTATION_SPEED * 2);
-            this.moveForward(deltaTime, 1.0);
+            this.rotation += Math.sign(centerAngleDiff) * Math.min(Math.abs(centerAngleDiff), BOT_CONSTANTS.ROTATION_SPEED * 1.5);
+            this.moveForward(deltaTime, 0.6); // Reduced from 1.0
         } else {
-            // Normal movement
-            this.moveForward(deltaTime, 0.5);
+            // Normal movement at very slow speed
+            this.moveForward(deltaTime, 0.3); // Reduced from 0.5
         }
     }
 
@@ -108,14 +113,14 @@ class LevelsBot {
             // Calculate angle to target
             const dx = this.targetPlayer.position.x - this.position.x;
             const dz = this.targetPlayer.position.z - this.position.z;
-            const targetAngle = Math.atan2(dx, dz); // Changed order to match game's coordinate system
+            const targetAngle = Math.atan2(dx, dz);
             
-            // Rotate towards target
+            // Rotate towards target more slowly
             const angleDiff = this.normalizeAngle(targetAngle - this.rotation);
-            this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED * 1.5);
+            this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED);
             
-            // Move forward at full speed
-            this.moveForward(deltaTime, 1.0);
+            // Move forward at reduced speed when pursuing
+            this.moveForward(deltaTime, 0.7); // Reduced from 1.0
         }
     }
 
@@ -128,23 +133,20 @@ class LevelsBot {
         const targetAngle = Math.atan2(dx, dz);
         const distance = this.getDistanceTo(this.targetPlayer.position);
         
-        // Rotate towards target
+        // Rotate towards target more slowly
         const angleDiff = this.normalizeAngle(targetAngle - this.rotation);
-        this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED * 2);
+        this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED * 1.5);
         
-        // Manage distance to target
+        // Manage distance to target with reduced speeds
         if (distance < BOT_CONSTANTS.MINIMUM_ATTACK_RANGE) {
-            // Too close, back up
-            this.moveForward(deltaTime, -0.5);
+            // Too close, back up slowly
+            this.moveForward(deltaTime, -0.3); // Reduced from -0.5
         } else if (distance > BOT_CONSTANTS.OPTIMAL_ATTACK_RANGE) {
-            // Too far, move closer
-            this.moveForward(deltaTime, 0.7);
+            // Too far, move closer slowly
+            this.moveForward(deltaTime, 0.5); // Reduced from 0.7
         }
         
-        // Only fire if:
-        // 1. Within attack range
-        // 2. Properly aimed at target
-        // 3. Cooldown is complete
+        // Only fire if within range and properly aimed
         const now = Date.now();
         if (distance <= BOT_CONSTANTS.MACHINE_GUN_RANGE && 
             Math.abs(angleDiff) < Math.PI / 6 && 
@@ -200,7 +202,57 @@ class LevelsBot {
         };
     }
 
-    update(players, deltaTime) {
+    hasLineOfSightToTarget(obstacles) {
+        if (!this.targetPlayer) return false;
+        
+        const now = Date.now();
+        // Only check line of sight periodically to save performance
+        if (now - this.lastLineOfSightCheck < BOT_CONSTANTS.LINE_OF_SIGHT_CHECK_INTERVAL) {
+            return this.hasLineOfSight;
+        }
+        
+        this.lastLineOfSightCheck = now;
+
+        // Simple line of sight check
+        const dx = this.targetPlayer.position.x - this.position.x;
+        const dz = this.targetPlayer.position.z - this.position.z;
+        const distance = Math.sqrt(dx * dx + dz * dz);
+        
+        // Check if any obstacles are between bot and target
+        if (obstacles) {
+            for (const obstacle of obstacles) {
+                // Simple obstacle check - treat obstacles as circles
+                const tox = obstacle.position.x - this.position.x;
+                const toz = obstacle.position.z - this.position.z;
+                const obstacleDistance = Math.sqrt(tox * tox + toz * toz);
+                
+                // If obstacle is farther than target, skip it
+                if (obstacleDistance > distance) continue;
+                
+                // Project obstacle onto line between bot and target
+                const dot = (dx * tox + dz * toz) / distance;
+                const projx = (dot / distance) * dx;
+                const projz = (dot / distance) * dz;
+                
+                // Calculate distance from obstacle to line
+                const perpx = tox - projx;
+                const perpz = toz - projz;
+                const perpDistance = Math.sqrt(perpx * perpx + perpz * perpz);
+                
+                // If obstacle is close enough to line and between bot and target
+                if (perpDistance < obstacle.radius && dot > 0 && dot < distance) {
+                    this.hasLineOfSight = false;
+                    return false;
+                }
+            }
+        }
+        
+        this.hasLineOfSight = true;
+        this.lastTargetSightTime = now;
+        return true;
+    }
+
+    update(players, deltaTime, obstacles) {
         if (!this.isAlive) return null;
 
         // Find closest non-invincible player
@@ -216,16 +268,25 @@ class LevelsBot {
             }
         }
 
-        // Update state based on closest player
-        if (!closestPlayer) {
+        const now = Date.now();
+        const hasLineOfSight = this.hasLineOfSightToTarget(obstacles);
+        const targetMemoryExpired = now - this.lastTargetSightTime > BOT_CONSTANTS.TARGET_MEMORY_TIME;
+
+        // Update state based on closest player and line of sight
+        if (!closestPlayer || targetMemoryExpired) {
             this.state = 'idle';
             this.targetPlayer = null;
-        } else if (closestDistance <= BOT_CONSTANTS.MACHINE_GUN_RANGE * 0.8) {
+        } else if (closestDistance <= BOT_CONSTANTS.MACHINE_GUN_RANGE * 0.8 && hasLineOfSight) {
             this.state = 'attack';
             this.targetPlayer = closestPlayer;
         } else if (closestDistance <= BOT_CONSTANTS.DETECTION_RANGE) {
-            this.state = 'pursue';
-            this.targetPlayer = closestPlayer;
+            if (hasLineOfSight || !targetMemoryExpired) {
+                this.state = 'pursue';
+                this.targetPlayer = closestPlayer;
+            } else {
+                this.state = 'idle';
+                this.targetPlayer = null;
+            }
         } else {
             this.state = 'idle';
             this.targetPlayer = null;
@@ -241,7 +302,7 @@ class LevelsBot {
                 this.handlePursueState(deltaTime);
                 break;
             case 'attack':
-                didFire = this.handleAttackState(deltaTime);
+                didFire = hasLineOfSight && this.handleAttackState(deltaTime);
                 break;
         }
 

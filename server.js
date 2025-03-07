@@ -21,6 +21,13 @@ const gameState = {
         width: 1000,
         height: 1000
     },
+    obstacles: [
+        { position: { x: 200, z: 200 }, radius: 30 },
+        { position: { x: -200, z: -200 }, radius: 30 },
+        { position: { x: 200, z: -200 }, radius: 30 },
+        { position: { x: -200, z: 200 }, radius: 30 },
+        { position: { x: 0, z: 0 }, radius: 40 }
+    ],
     testMode: CONFIG.TEST_MODE,
     bot: null,
     lastBotEliminationTime: 0,
@@ -64,7 +71,7 @@ function updateBot(deltaTime) {
     }
 
     if (gameState.bot && gameState.bot.isAlive) {
-        const botUpdate = gameState.bot.update(gameState.players, deltaTime);
+        const botUpdate = gameState.bot.update(gameState.players, deltaTime, gameState.obstacles);
         if (botUpdate) {
             io.emit('botUpdate', botUpdate.data);
             
@@ -84,8 +91,8 @@ function updateBot(deltaTime) {
                     const dz = player.position.z - gameState.bot.position.z;
                     const distance = Math.sqrt(dx * dx + dz * dz);
                     
-                    // Only apply damage if player is within range
-                    if (distance <= BOT_CONSTANTS.MACHINE_GUN_RANGE) {
+                    // Only apply damage if player is within range and bot has line of sight
+                    if (distance <= BOT_CONSTANTS.MACHINE_GUN_RANGE && gameState.bot.hasLineOfSightToTarget(gameState.obstacles)) {
                         // Calculate angle to player relative to bot's rotation
                         const angleToPlayer = Math.atan2(dx, dz);
                         const angleDiff = Math.abs(gameState.bot.normalizeAngle(angleToPlayer - gameState.bot.rotation));

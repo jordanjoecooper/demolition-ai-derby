@@ -35,11 +35,11 @@ class Game {
     this.createDeathScreen();
 
     // Physics constants
-    this.maxSpeed = 1.0;
-    this.acceleration = 0.01;
+    this.maxSpeed = 1.5;
+    this.acceleration = 0.015;
     this.deceleration = 0.005;
     this.rotationSpeed = 0.05;
-    this.boostMultiplier = 2.0;
+    this.boostMultiplier = 2.5;
     this.gravity = 0.01;
     this.groundLevel = 0;
     this.carRadius = 10; // For collision detection
