@@ -5,8 +5,9 @@ class Game {
     this.network = network;
     this.controls = controls;
 
-    // Initialize bot renderer
-    this.botRenderer = new LevelsBotRenderer(this.renderer.scene, this.renderer.assets);
+    // Initialize bot renderer (will only be used if bot is enabled)
+    this.botRenderer = null;
+    this.botEnabled = false;
 
     // Game state
     this.localPlayer = {
@@ -257,6 +258,12 @@ class Game {
   setupNetworkCallbacks() {
     this.network.setCallbacks({
       onGameState: (data) => {
+        // Initialize bot if enabled
+        if (data.botEnabled && !this.botRenderer) {
+          this.botEnabled = true;
+          this.botRenderer = new LevelsBotRenderer(this.renderer.scene, this.renderer.assets);
+        }
+
         // Initialize local player position from server data
         const playerId = this.network.getPlayerId();
         const player = data.players[playerId];
@@ -280,6 +287,18 @@ class Game {
             );
           }
         });
+      },
+      onGameConfig: (config) => {
+        // Store configuration
+        this.botEnabled = config.botEnabled;
+        this.testMode = config.testMode;
+        
+        // Initialize bot renderer if enabled
+        if (config.botEnabled && !this.botRenderer) {
+          this.botRenderer = new LevelsBotRenderer(this.renderer.scene, this.renderer.assets);
+        }
+        
+        console.log('Game config received:', config);
       },
       onPlayerJoined: (data) => this.handlePlayerJoined(data),
       onPlayerLeft: (data) => this.handlePlayerLeft(data),
@@ -863,8 +882,8 @@ class Game {
       return;
     }
 
-    // Update bot if present in game state
-    if (data.bot) {
+    // Update bot if enabled and present in game state
+    if (this.botEnabled && this.botRenderer && data.bot) {
       this.botRenderer.updateBot(data.bot);
     }
 
@@ -938,24 +957,34 @@ class Game {
   }
 
   setupBotNetworkCallbacks() {
+    // Only set up bot callbacks if bot is enabled
+    if (!this.botEnabled) {
+      return;
+    }
+
     this.network.socket.on('botSpawned', (botState) => {
-      console.log('Bot spawned:', botState);
-      this.botRenderer.updateBot(botState);
+      if (this.botRenderer) {
+        console.log('Bot spawned:', botState);
+        this.botRenderer.updateBot(botState);
+      }
     });
 
     this.network.socket.on('botUpdate', (botState) => {
-      this.botRenderer.updateBot(botState);
+      if (this.botRenderer) {
+        this.botRenderer.updateBot(botState);
+      }
     });
 
     this.network.socket.on('botEliminated', (data) => {
-      console.log('Bot eliminated by player:', data.eliminatedBy);
-      this.botRenderer.playEliminationEffect();
-      
-      // Update local player's score if they eliminated the bot
-      if (data.eliminatedBy === this.network.socket.id) {
-        this.localPlayer.score += data.points;
-        // Show score popup
-        this.showScorePopup(data.points);
+      if (this.botRenderer) {
+        console.log('Bot eliminated by player:', data.eliminatedBy);
+        this.botRenderer.playEliminationEffect();
+        
+        // Update local player's score if they eliminated the bot
+        if (data.eliminatedBy === this.network.socket.id) {
+          this.localPlayer.score += data.points;
+          this.showScorePopup(data.points);
+        }
       }
     });
   }

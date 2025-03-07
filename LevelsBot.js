@@ -5,6 +5,8 @@ const BOT_CONSTANTS = {
     MACHINE_GUN_FIRE_RATE: 500, // 2 shots per second (in ms)
     MACHINE_GUN_ARC: 45, // degrees
     DETECTION_RANGE: 200,
+    MINIMUM_ATTACK_RANGE: 30, // Minimum range to start attacking
+    OPTIMAL_ATTACK_RANGE: 40, // Optimal range for attacking
     RESPAWN_DELAY: 60000, // 60 seconds in ms
     KILL_POINTS: 100,
     MOVEMENT_SPEED: 15, // Further reduced for better control
@@ -120,28 +122,33 @@ class LevelsBot {
     handleAttackState(deltaTime) {
         if (!this.targetPlayer) return false;
 
-        // Calculate angle to target
+        // Calculate angle and distance to target
         const dx = this.targetPlayer.position.x - this.position.x;
         const dz = this.targetPlayer.position.z - this.position.z;
         const targetAngle = Math.atan2(dx, dz);
+        const distance = this.getDistanceTo(this.targetPlayer.position);
         
         // Rotate towards target
         const angleDiff = this.normalizeAngle(targetAngle - this.rotation);
         this.rotation += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), BOT_CONSTANTS.ROTATION_SPEED * 2);
         
-        // Only move forward if too close or too far from target
-        const distance = this.getDistanceTo(this.targetPlayer.position);
-        if (distance < BOT_CONSTANTS.MACHINE_GUN_RANGE * 0.6) {
+        // Manage distance to target
+        if (distance < BOT_CONSTANTS.MINIMUM_ATTACK_RANGE) {
             // Too close, back up
             this.moveForward(deltaTime, -0.5);
-        } else if (distance > BOT_CONSTANTS.MACHINE_GUN_RANGE * 0.8) {
+        } else if (distance > BOT_CONSTANTS.OPTIMAL_ATTACK_RANGE) {
             // Too far, move closer
             this.moveForward(deltaTime, 0.7);
         }
         
-        // Fire machine gun if aimed correctly and cooldown is complete
+        // Only fire if:
+        // 1. Within attack range
+        // 2. Properly aimed at target
+        // 3. Cooldown is complete
         const now = Date.now();
-        if (now - this.lastFireTime >= BOT_CONSTANTS.MACHINE_GUN_FIRE_RATE && Math.abs(angleDiff) < Math.PI / 6) {
+        if (distance <= BOT_CONSTANTS.MACHINE_GUN_RANGE && 
+            Math.abs(angleDiff) < Math.PI / 6 && 
+            now - this.lastFireTime >= BOT_CONSTANTS.MACHINE_GUN_FIRE_RATE) {
             this.lastFireTime = now;
             return true;
         }
