@@ -60,6 +60,10 @@ class Game {
     this.airTimeIndicator = document.getElementById('air-time-indicator');
     this.airTimeIndicatorTimeout = null;
 
+    // Hit indicator
+    this.hitIndicator = document.getElementById('hit-indicator');
+    this.hitIndicatorTimeout = null;
+
     // Set up network callbacks
     this.setupNetworkCallbacks();
 
@@ -765,6 +769,9 @@ class Game {
             this.localPlayer.isInAir = true;
           }
 
+          // Show hit indicator
+          this.showHitIndicator();
+
           // Separate the cars to prevent overlap
           const overlap = collisionThreshold - distance;
           if (overlap > 0) {
@@ -1162,6 +1169,24 @@ class Game {
     const players = this.network.getPlayers();
     if (players[playerId]) {
       players[playerId].trickScore = (players[playerId].trickScore || 0) + Math.floor(airTime * 100);
+    }
+  }
+
+  // Show hit indicator
+  showHitIndicator() {
+    if (this.hitIndicator) {
+      // Clear any existing timeout
+      if (this.hitIndicatorTimeout) {
+        clearTimeout(this.hitIndicatorTimeout);
+      }
+
+      // Show the indicator
+      this.hitIndicator.classList.add('visible');
+
+      // Hide after animation completes
+      this.hitIndicatorTimeout = setTimeout(() => {
+        this.hitIndicator.classList.remove('visible');
+      }, 500);
     }
   }
 }

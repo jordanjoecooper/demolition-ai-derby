@@ -67,18 +67,34 @@ class Radar {
     // Calculate sweep angle based on time
     const sweepAngle = (Date.now() / 2000) % (Math.PI * 2);
     
-    // Create gradient for sweep effect
-    const gradient = this.ctx.createConicalGradient(this.centerX, this.centerY, sweepAngle);
-    gradient.addColorStop(0, 'rgba(0, 255, 0, 0.2)');
-    gradient.addColorStop(0.5, 'rgba(0, 255, 0, 0)');
+    // Save the current context state
+    this.ctx.save();
     
-    // Draw sweep
+    // Create sweep effect using clipping
     this.ctx.beginPath();
     this.ctx.moveTo(this.centerX, this.centerY);
     this.ctx.arc(this.centerX, this.centerY, this.radius, sweepAngle, sweepAngle + Math.PI / 3);
     this.ctx.lineTo(this.centerX, this.centerY);
+    this.ctx.clip();
+
+    // Draw the sweep gradient
+    const gradient = this.ctx.createRadialGradient(
+      this.centerX, this.centerY, 0,
+      this.centerX, this.centerY, this.radius
+    );
+    gradient.addColorStop(0, 'rgba(0, 255, 0, 0.2)');
+    gradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+    
     this.ctx.fillStyle = gradient;
-    this.ctx.fill();
+    this.ctx.fillRect(
+      this.centerX - this.radius,
+      this.centerY - this.radius,
+      this.radius * 2,
+      this.radius * 2
+    );
+    
+    // Restore the context state
+    this.ctx.restore();
   }
 
   drawEntities() {
