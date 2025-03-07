@@ -37,11 +37,11 @@ Purpose: Offers temporary protection, adding a tactical layer to gameplay (durat
 4. Elimination and Respawn
 Elimination: When a car’s HP reaches 0%, it is destroyed, and a "wasted" screen appears with a respawn button.
 
-Respawn: Upon clicking the button, the player respawns with 100 HP at a random location on the map.
+Respawn: Upon clicking the button, the player respawns with 100 HP at a single location in the center of the map marked with a red circle.
 
 Purpose: Keeps players in the game, maintaining the chaotic, continuous action of Need for Madness.
 5. Levelsio Bot (AI Opponent)
-Health: The bot has 2000 HP (20 times a player’s health), making it a tough adversary.
+Health: The bot has 2000 HP (10 times a player’s health), making it a tough adversary.
 
 Damage Dealt:
 Collisions: Follows the same rules as player-to-player collisions (damage = (relative speed) / 5, minimum 5 HP).

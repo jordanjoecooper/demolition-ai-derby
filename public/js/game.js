@@ -88,6 +88,38 @@ class Game {
 
     // Add bot-related network handlers
     this.setupBotNetworkCallbacks();
+
+    // Scoreboard state
+    this.scoreboard = {
+      visible: false,
+      element: document.getElementById('scoreboard'),
+      killsList: document.getElementById('kills-list'),
+      tricksList: document.getElementById('tricks-list'),
+      survivalList: document.getElementById('survival-list')
+    };
+
+    // Validate scoreboard elements
+    if (!this.scoreboard.element) {
+      console.error('Scoreboard element not found!');
+    }
+    if (!this.scoreboard.killsList) {
+      console.error('Kills list element not found!');
+    }
+    if (!this.scoreboard.tricksList) {
+      console.error('Tricks list element not found!');
+    }
+    if (!this.scoreboard.survivalList) {
+      console.error('Survival list element not found!');
+    }
+
+    // Track player stats
+    this.playerStats = new Map();
+
+    // Add scoreboard key listener (bind to ensure correct 'this' context)
+    this.handleScoreboardKey = this.handleScoreboardKey.bind(this);
+    this.handleScoreboardKeyUp = this.handleScoreboardKeyUp.bind(this);
+    window.addEventListener('keydown', this.handleScoreboardKey);
+    window.addEventListener('keyup', this.handleScoreboardKeyUp);
   }
 
   createDeathScreen() {
@@ -436,6 +468,11 @@ class Game {
     // Render the scene
     this.renderer.render();
 
+    // Update scoreboard if visible
+    if (this.scoreboard.visible) {
+      this.updateScoreboard();
+    }
+
     // Continue the game loop
     this.animationFrameId = requestAnimationFrame(() => this.gameLoop());
   }
@@ -527,6 +564,10 @@ class Game {
           const airTimeDuration = (Date.now() - this.localPlayer.airTimeStart) / 1000;
           if (airTimeDuration > 0.5) { // Only count air time longer than 0.5 seconds
             console.log(`Air time: ${airTimeDuration.toFixed(2)} seconds`);
+            // Update trick score based on air time
+            this.updateTrickScore(airTimeDuration);
+            // Show air time indicator with score
+            this.showAirTimeIndicator(Math.floor(airTimeDuration * 100));
           }
           this.localPlayer.isInAir = false;
         }
@@ -577,15 +618,16 @@ class Game {
     this.network.sendPlayerUpdate(this.localPlayer.position, this.localPlayer.rotation);
   }
 
-  // Show air time indicator
-  showAirTimeIndicator() {
+  // Show air time indicator with score
+  showAirTimeIndicator(score) {
     if (this.airTimeIndicator) {
       // Clear any existing timeout
       if (this.airTimeIndicatorTimeout) {
         clearTimeout(this.airTimeIndicatorTimeout);
       }
 
-      // Show the indicator
+      // Show the indicator with score
+      this.airTimeIndicator.textContent = `AIR TIME! +${score}`;
       this.airTimeIndicator.classList.add('visible');
 
       // Hide after animation completes
@@ -809,6 +851,10 @@ class Game {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
+    
+    // Remove event listeners
+    window.removeEventListener('keydown', this.handleScoreboardKey);
+    window.removeEventListener('keyup', this.handleScoreboardKeyUp);
   }
 
   handlePlayerEliminated(data) {
@@ -823,6 +869,13 @@ class Game {
       // Update health UI
       this.network.updateHealthUI(0);
     } else {
+      // If eliminated by a player (not bot or obstacle)
+      if (data.eliminatedBy) {
+        const players = this.network.getPlayers();
+        if (players[data.eliminatedBy]) {
+          players[data.eliminatedBy].kills = (players[data.eliminatedBy].kills || 0) + 1;
+        }
+      }
       // Remove eliminated player's car from the map
       this.renderer.removePlayer(data.id);
     }
@@ -954,6 +1007,14 @@ class Game {
       data.boosting || false
     );
     console.log(`Added new player ${data.id} to renderer`);
+
+    // Initialize player stats
+    const players = this.network.getPlayers();
+    if (players[data.id]) {
+      players[data.id].kills = 0;
+      players[data.id].trickScore = 0;
+      players[data.id].joinTime = Date.now();
+    }
   }
 
   setupBotNetworkCallbacks() {
@@ -1000,6 +1061,100 @@ class Game {
       popup.style.opacity = '0';
       setTimeout(() => popup.remove(), 1000);
     }, 2000);
+  }
+
+  handleScoreboardKey(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault(); // Prevent tab from changing focus
+      if (!this.scoreboard.visible) {
+        this.showScoreboard();
+      }
+    }
+  }
+
+  handleScoreboardKeyUp(e) {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      this.hideScoreboard();
+    }
+  }
+
+  showScoreboard() {
+    if (!this.scoreboard.element) {
+      console.error('Cannot show scoreboard: element not found');
+      return;
+    }
+    this.scoreboard.visible = true;
+    this.scoreboard.element.classList.add('visible');
+    this.updateScoreboard();
+    console.log('Scoreboard shown');
+  }
+
+  hideScoreboard() {
+    if (!this.scoreboard.element) {
+      console.error('Cannot hide scoreboard: element not found');
+      return;
+    }
+    this.scoreboard.visible = false;
+    this.scoreboard.element.classList.remove('visible');
+    console.log('Scoreboard hidden');
+  }
+
+  updateScoreboard() {
+    const players = this.network.getPlayers();
+    const currentPlayerId = this.network.getPlayerId();
+    
+    // Convert players to array for sorting
+    const playerArray = Object.entries(players).map(([id, player]) => ({
+      id,
+      name: player.username || `Player ${id.slice(0, 4)}`,
+      kills: player.kills || 0,
+      trickScore: player.trickScore || 0,
+      survivalTime: (Date.now() - (player.joinTime || Date.now())) / 1000
+    }));
+
+    // Update kills list
+    const topKillers = [...playerArray].sort((a, b) => b.kills - a.kills).slice(0, 3);
+    this.scoreboard.killsList.innerHTML = this.generateScoreboardHTML(topKillers, 'kills', currentPlayerId);
+
+    // Update trick scores list
+    const topTricks = [...playerArray].sort((a, b) => b.trickScore - a.trickScore).slice(0, 3);
+    this.scoreboard.tricksList.innerHTML = this.generateScoreboardHTML(topTricks, 'trickScore', currentPlayerId);
+
+    // Update survival time list
+    const topSurvivors = [...playerArray].sort((a, b) => b.survivalTime - a.survivalTime).slice(0, 3);
+    this.scoreboard.survivalList.innerHTML = this.generateScoreboardHTML(topSurvivors, 'survivalTime', currentPlayerId, true);
+  }
+
+  generateScoreboardHTML(players, scoreType, currentPlayerId, formatTime = false) {
+    return players.map(player => {
+      const score = formatTime ? 
+        this.formatTime(player[scoreType]) : 
+        player[scoreType];
+      
+      const isCurrentPlayer = player.id === currentPlayerId;
+      return `
+        <div class="scoreboard-entry ${isCurrentPlayer ? 'current-player' : ''}">
+          <span class="player-name">${player.name}</span>
+          <span class="player-score">${score}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  // Update trick score when player gets air time
+  updateTrickScore(airTime) {
+    const playerId = this.network.getPlayerId();
+    const players = this.network.getPlayers();
+    if (players[playerId]) {
+      players[playerId].trickScore = (players[playerId].trickScore || 0) + Math.floor(airTime * 100);
+    }
   }
 }
 
