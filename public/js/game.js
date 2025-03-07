@@ -100,22 +100,13 @@ class Game {
       text-shadow: 2px 2px 4px #000;
     `;
 
-    // Add ASCII skull
-    const skullArt = document.createElement('pre');
-    skullArt.textContent = `
-      .-'---\`-.
-      /-'     '-\\
-     |           |
-     |  X     X  |
-     |     ^     |
-     |   '-|-'   |
-     \\     =     /
-      \`-..___.-'
-    `;
+    // Add skull emoji
+    const skullArt = document.createElement('div');
+    skullArt.textContent = '💀';
     skullArt.style.cssText = `
-      font-size: 24px;
+      font-size: 120px;
       margin: 20px 0;
-      color: #fff;
+      text-shadow: 2px 2px 4px #000;
     `;
 
     // Add respawn button
@@ -309,14 +300,19 @@ class Game {
     this.checkObstacleCollisions();
 
     // Update renderer with local player position
-    this.renderer.updatePlayer(
-      this.network.getPlayerId(),
-      this.localPlayer.position,
-      this.localPlayer.rotation,
-      this.localPlayer.health,
-      this.localPlayer.invincible,
-      this.controls.getInputs().boost
-    );
+    if (!this.localPlayer.eliminated) {
+      this.renderer.updatePlayer(
+        this.network.getPlayerId(),
+        this.localPlayer.position,
+        this.localPlayer.rotation,
+        this.localPlayer.health,
+        this.localPlayer.invincible,
+        this.controls.getInputs().boost
+      );
+    } else {
+      // Remove player from renderer when eliminated
+      this.renderer.removePlayer(this.network.getPlayerId());
+    }
 
     // Update camera to follow player
     this.renderer.followPlayer(this.localPlayer.position, this.localPlayer.rotation);
