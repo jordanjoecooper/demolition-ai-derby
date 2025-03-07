@@ -107,28 +107,56 @@ class GameRenderer {
 
   // Create the arena
   createArena() {
-    // Floor
-    const floorGeometry = new THREE.PlaneGeometry(this.arenaSize, this.arenaSize);
+    // Floor with grid pattern
+    const floorGeometry = new THREE.PlaneGeometry(this.arenaSize, this.arenaSize, 50, 50);
     const floorMaterial = new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      roughness: 0.8,
-      metalness: 0.2
+      color: 0x000000,
+      roughness: 0.7,
+      metalness: 0.3
     });
     const floor = new THREE.Mesh(floorGeometry, floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     this.scene.add(floor);
 
-    // Arena walls
-    const wallHeight = 10;
+    // Add grid lines
+    const gridHelper = new THREE.GridHelper(this.arenaSize, 50, 0x00ffff, 0x00ffff);
+    gridHelper.position.y = 0.1;
+    gridHelper.material.opacity = 0.2;
+    gridHelper.material.transparent = true;
+    this.scene.add(gridHelper);
+
+    // Arena walls with neon effect
+    const wallHeight = 40;
     const wallThickness = 5;
     const halfSize = this.arenaSize / 2;
 
+    // Create wall material with emissive glow
     const wallMaterial = new THREE.MeshStandardMaterial({
-      color: 0xff0000,
-      roughness: 0.7,
-      metalness: 0.3
+      color: 0x000000,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.5,
+      roughness: 0.4,
+      metalness: 0.8
     });
+
+    // Create buildings around the arena
+    this.createBuildings();
+
+    // Add neon trim to walls
+    const createNeonTrim = (wall, color) => {
+      const trimGeometry = new THREE.BoxGeometry(wall.geometry.parameters.width, 2, 2);
+      const trimMaterial = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: color,
+        emissiveIntensity: 1,
+        roughness: 0.3,
+        metalness: 0.8
+      });
+      const trim = new THREE.Mesh(trimGeometry, trimMaterial);
+      trim.position.y = wallHeight / 2;
+      wall.add(trim);
+    };
 
     // North wall
     const northWallGeometry = new THREE.BoxGeometry(this.arenaSize + wallThickness * 2, wallHeight, wallThickness);
@@ -136,11 +164,13 @@ class GameRenderer {
     northWall.position.set(0, wallHeight / 2, -halfSize - wallThickness / 2);
     northWall.castShadow = true;
     northWall.receiveShadow = true;
+    createNeonTrim(northWall, 0x00ffff);
     this.scene.add(northWall);
 
     // South wall
     const southWall = northWall.clone();
     southWall.position.z = halfSize + wallThickness / 2;
+    createNeonTrim(southWall, 0x00ffff);
     this.scene.add(southWall);
 
     // East wall
@@ -149,153 +179,199 @@ class GameRenderer {
     eastWall.position.set(halfSize + wallThickness / 2, wallHeight / 2, 0);
     eastWall.castShadow = true;
     eastWall.receiveShadow = true;
+    createNeonTrim(eastWall, 0xff00ff);
     this.scene.add(eastWall);
 
     // West wall
     const westWall = eastWall.clone();
     westWall.position.x = -halfSize - wallThickness / 2;
+    createNeonTrim(westWall, 0xff00ff);
     this.scene.add(westWall);
 
     // Add ramps and obstacles
-    this.addRamps();
-    this.addObstacles();
+    this.addCyberpunkRamps();
+    this.addCyberpunkObstacles();
+
+    // Add ambient fog
+    this.scene.fog = new THREE.FogExp2(0x000000, 0.0015);
+
+    // Add volumetric lights
+    this.addVolumentricLights();
   }
 
-  // Add ramps to the arena
-  addRamps() {
-    // Ramp material
+  // Create cyberpunk buildings
+  createBuildings() {
+    const buildingCount = 20;
+    const maxSize = this.arenaSize * 0.8;
+
+    for (let i = 0; i < buildingCount; i++) {
+      // Random building dimensions
+      const width = 30 + Math.random() * 50;
+      const height = 100 + Math.random() * 200;
+      const depth = 30 + Math.random() * 50;
+
+      // Create building geometry
+      const buildingGeometry = new THREE.BoxGeometry(width, height, depth);
+      const buildingMaterial = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        emissive: 0x000000,
+        roughness: 0.7,
+        metalness: 0.8
+      });
+      const building = new THREE.Mesh(buildingGeometry, buildingMaterial);
+
+      // Position building outside arena
+      const angle = (i / buildingCount) * Math.PI * 2;
+      const radius = this.arenaSize * 0.6 + Math.random() * 200;
+      building.position.x = Math.cos(angle) * radius;
+      building.position.y = height / 2;
+      building.position.z = Math.sin(angle) * radius;
+
+      // Add window lights
+      this.addBuildingWindows(building);
+
+      this.scene.add(building);
+    }
+  }
+
+  // Add windows to buildings
+  addBuildingWindows(building) {
+    const windowGeometry = new THREE.PlaneGeometry(2, 2);
+    const windowColors = [0x00ffff, 0xff00ff, 0xffff00];
+    
+    const width = building.geometry.parameters.width;
+    const height = building.geometry.parameters.height;
+    const depth = building.geometry.parameters.depth;
+
+    // Create windows on each face
+    for (let y = 5; y < height - 5; y += 10) {
+      for (let x = -width/2 + 5; x < width/2 - 5; x += 10) {
+        if (Math.random() > 0.3) { // 70% chance of window
+          const windowMaterial = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            emissive: windowColors[Math.floor(Math.random() * windowColors.length)],
+            emissiveIntensity: Math.random() * 0.5 + 0.5
+          });
+
+          // Front windows
+          const windowFront = new THREE.Mesh(windowGeometry, windowMaterial);
+          windowFront.position.set(x, y - height/2, depth/2 + 0.1);
+          building.add(windowFront);
+
+          // Back windows
+          const windowBack = new THREE.Mesh(windowGeometry, windowMaterial.clone());
+          windowBack.position.set(x, y - height/2, -depth/2 - 0.1);
+          windowBack.rotation.y = Math.PI;
+          building.add(windowBack);
+        }
+      }
+    }
+  }
+
+  // Add cyberpunk-styled ramps
+  addCyberpunkRamps() {
     const rampMaterial = new THREE.MeshStandardMaterial({
-      color: 0x3366ff,
-      roughness: 0.6,
-      metalness: 0.4
+      color: 0x000000,
+      emissive: 0xff00ff,
+      emissiveIntensity: 0.5,
+      roughness: 0.4,
+      metalness: 0.8
     });
 
-    // Create 3 ramps at strategic positions
     const rampPositions = [
       { x: -300, z: -200, rotation: Math.PI / 4 },
       { x: 300, z: 200, rotation: -Math.PI / 4 },
       { x: 0, z: -300, rotation: 0 }
     ];
 
-    rampPositions.forEach((pos, index) => {
-      // Create ramp geometry
+    rampPositions.forEach((pos) => {
       const rampLength = 80;
       const rampWidth = 40;
       const rampHeight = 20;
 
-      // Create ramp using a custom geometry for better shape
       const rampGeometry = new THREE.BufferGeometry();
-
-      // Define vertices for a proper ramp shape
       const vertices = new Float32Array([
-        // Base (bottom face)
         -rampWidth/2, 0, -rampLength/2,
         rampWidth/2, 0, -rampLength/2,
         rampWidth/2, 0, rampLength/2,
         -rampWidth/2, 0, rampLength/2,
-
-        // Top face (sloped)
         -rampWidth/2, 0, -rampLength/2,
         rampWidth/2, 0, -rampLength/2,
         rampWidth/2, rampHeight, rampLength/2,
         -rampWidth/2, rampHeight, rampLength/2
       ]);
 
-      // Define faces using indices
       const indices = [
-        // Bottom face
-        0, 1, 2,
-        0, 2, 3,
-
-        // Front face (high end)
-        2, 6, 7,
-        2, 7, 3,
-
-        // Back face (low end)
-        0, 4, 5,
-        0, 5, 1,
-
-        // Left face
-        0, 3, 7,
-        0, 7, 4,
-
-        // Right face
-        1, 5, 6,
-        1, 6, 2,
-
-        // Top face (sloped)
-        4, 7, 6,
-        4, 6, 5
+        0, 1, 2, 0, 2, 3,
+        2, 6, 7, 2, 7, 3,
+        0, 4, 5, 0, 5, 1,
+        0, 3, 7, 0, 7, 4,
+        1, 5, 6, 1, 6, 2,
+        4, 7, 6, 4, 6, 5
       ];
 
-      // Set geometry attributes
       rampGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
       rampGeometry.setIndex(indices);
       rampGeometry.computeVertexNormals();
 
-      // Create mesh
       const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
-
-      // Position and rotate the ramp
       ramp.position.set(pos.x, 0, pos.z);
       ramp.rotation.y = pos.rotation;
-
-      // Add shadows
       ramp.castShadow = true;
       ramp.receiveShadow = true;
 
-      // Add to scene and store in ramps array
+      // Add neon trim
+      const edgeGeometry = new THREE.EdgesGeometry(rampGeometry);
+      const edgeMaterial = new THREE.LineBasicMaterial({ 
+        color: 0xff00ff,
+        linewidth: 2
+      });
+      const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+      ramp.add(edges);
+
       this.scene.add(ramp);
 
-      // Store ramp data for collision detection
       this.ramps.push({
         mesh: ramp,
         position: { x: pos.x, y: rampHeight / 2, z: pos.z },
         size: { width: rampWidth, height: rampHeight, length: rampLength },
         rotation: pos.rotation
       });
-
-      // Add visual indicator for the ramp
-      const edgeGeometry = new THREE.EdgesGeometry(rampGeometry);
-      const edgeMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
-      const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-      ramp.add(edges);
     });
   }
 
-  // Add obstacles to the arena
-  addObstacles() {
-    const obstacleMaterial = new THREE.MeshStandardMaterial({
-      color: 0x666666,
-      roughness: 0.8,
-      metalness: 0.5
+  // Add cyberpunk-styled obstacles
+  addCyberpunkObstacles() {
+    const obstacleCount = 15;
+    const baseGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const baseMaterial = new THREE.MeshStandardMaterial({
+      color: 0x000000,
+      emissive: 0x00ffff,
+      emissiveIntensity: 0.5,
+      roughness: 0.4,
+      metalness: 0.8
     });
 
-    // Add some blocks (rocks)
-    for (let i = 0; i < 15; i++) {
-      // Random size for variety
+    for (let i = 0; i < obstacleCount; i++) {
       const size = 10 + Math.random() * 15;
-
-      // Create a rock-like geometry using a modified box
-      const rockGeometry = new THREE.BoxGeometry(size, size, size);
-
-      // Modify vertices to make it look more like a rock
-      const positionAttribute = rockGeometry.getAttribute('position');
+      const geometry = baseGeometry.clone();
+      
+      // Modify vertices for irregular shape
+      const positionAttribute = geometry.getAttribute('position');
       const vertices = positionAttribute.array;
-
-      // Randomly adjust vertices to make the rock irregular
+      
       for (let j = 0; j < vertices.length; j += 3) {
-        vertices[j] += (Math.random() - 0.5) * 3;
-        vertices[j + 1] += (Math.random() - 0.5) * 3;
-        vertices[j + 2] += (Math.random() - 0.5) * 3;
+        vertices[j] = vertices[j] * size + (Math.random() - 0.5) * 3;
+        vertices[j + 1] = vertices[j + 1] * size + (Math.random() - 0.5) * 3;
+        vertices[j + 2] = vertices[j + 2] * size + (Math.random() - 0.5) * 3;
       }
 
       positionAttribute.needsUpdate = true;
-      rockGeometry.computeVertexNormals();
+      geometry.computeVertexNormals();
 
-      const rock = new THREE.Mesh(rockGeometry, obstacleMaterial);
-
-      // Random position within the arena, avoiding the center and ramps
+      const obstacle = new THREE.Mesh(geometry, baseMaterial.clone());
+      
+      // Find valid position
       let validPosition = false;
       let x, z;
 
@@ -303,11 +379,9 @@ class GameRenderer {
         x = (Math.random() - 0.5) * (this.arenaSize - 100);
         z = (Math.random() - 0.5) * (this.arenaSize - 100);
 
-        // Check distance from center
         const distFromCenter = Math.sqrt(x * x + z * z);
-        if (distFromCenter < 50) continue; // Too close to center
+        if (distFromCenter < 50) continue;
 
-        // Check distance from ramps
         let tooCloseToRamp = false;
         for (const ramp of this.ramps) {
           const dx = x - ramp.position.x;
@@ -324,25 +398,63 @@ class GameRenderer {
         }
       }
 
-      rock.position.set(x, size / 2, z);
-      rock.rotation.set(
+      obstacle.position.set(x, size / 2, z);
+      obstacle.rotation.set(
         Math.random() * Math.PI / 4,
         Math.random() * Math.PI,
         Math.random() * Math.PI / 4
       );
 
-      rock.castShadow = true;
-      rock.receiveShadow = true;
-      this.scene.add(rock);
+      // Add neon edges
+      const edgeGeometry = new THREE.EdgesGeometry(geometry);
+      const edgeMaterial = new THREE.LineBasicMaterial({ 
+        color: 0x00ffff,
+        linewidth: 2
+      });
+      const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
+      obstacle.add(edges);
 
-      // Store obstacle data for collision detection
+      obstacle.castShadow = true;
+      obstacle.receiveShadow = true;
+      this.scene.add(obstacle);
+
       this.obstacles.push({
-        mesh: rock,
+        mesh: obstacle,
         position: { x, y: size / 2, z },
         size: { width: size, height: size, length: size },
-        damage: 5 + Math.floor(Math.random() * 10) // Random damage between 5-15
+        damage: 5 + Math.floor(Math.random() * 10)
       });
     }
+  }
+
+  // Add volumetric lights
+  addVolumentricLights() {
+    // Add spotlights at corners
+    const corners = [
+      { x: -this.arenaSize/2, z: -this.arenaSize/2 },
+      { x: this.arenaSize/2, z: -this.arenaSize/2 },
+      { x: -this.arenaSize/2, z: this.arenaSize/2 },
+      { x: this.arenaSize/2, z: this.arenaSize/2 }
+    ];
+
+    corners.forEach((corner, index) => {
+      const spotlight = new THREE.SpotLight(
+        [0x00ffff, 0xff00ff, 0xffff00, 0x00ff00][index],
+        1
+      );
+      spotlight.position.set(corner.x, 100, corner.z);
+      spotlight.angle = Math.PI / 6;
+      spotlight.penumbra = 0.3;
+      spotlight.decay = 1;
+      spotlight.distance = 500;
+      spotlight.castShadow = true;
+      
+      this.scene.add(spotlight);
+      this.scene.add(spotlight.target);
+      
+      // Point each spotlight toward the center
+      spotlight.target.position.set(0, 0, 0);
+    });
   }
 
   // Check if a position is on a ramp and return height
