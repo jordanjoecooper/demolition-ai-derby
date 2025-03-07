@@ -72,22 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     usernameError.classList.add('hidden');
     usernameInput.classList.remove('error');
     
-    // Initialize game with username
-    initializeGame(username);
-  });
-
-  // Handle input changes
-  usernameInput.addEventListener('input', () => {
-    if (usernameInput.value.trim().length > 0) {
-      usernameError.classList.add('hidden');
-      usernameInput.classList.remove('error');
-    }
-  });
-
-  // Start game when button is clicked
-  startGameBtn.addEventListener('click', () => {
-    console.log('Start game button clicked');
-    username = usernameInput.value.trim() || `Guest_${Math.floor(Math.random() * 10000)}`;
+    // Hide username modal and show loading screen
     usernameModal.classList.add('hidden');
     loadingScreen.classList.remove('hidden');
 
@@ -97,14 +82,15 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         initGame(username);
         gameInitialized = true;
-      }, 100); // Small delay to ensure UI updates first
+      }, 100);
     }
   });
 
-  // Allow pressing Enter to start game
-  usernameInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-      startGameBtn.click();
+  // Handle input changes
+  usernameInput.addEventListener('input', () => {
+    if (usernameInput.value.trim().length > 0) {
+      usernameError.classList.add('hidden');
+      usernameInput.classList.remove('error');
     }
   });
 });
@@ -137,19 +123,18 @@ function initGame(username) {
     // Hide loading screen and show game UI after everything is loaded
     console.log('Setting up onLoaded callback');
 
-    // Force transition to game UI after a reasonable timeout (5 seconds)
-    // This ensures the game starts even if there's an issue with the callback
-    setTimeout(() => {
-      console.log('Forcing transition to game UI');
-      document.getElementById('loading-screen').classList.add('hidden');
-      document.getElementById('game-ui').classList.remove('hidden');
-    }, 5000);
-
     renderer.onLoaded(() => {
       console.log('Renderer loaded callback triggered');
       document.getElementById('loading-screen').classList.add('hidden');
       document.getElementById('game-ui').classList.remove('hidden');
     });
+
+    // Force transition to game UI after a reasonable timeout (5 seconds)
+    setTimeout(() => {
+      console.log('Forcing transition to game UI');
+      document.getElementById('loading-screen').classList.add('hidden');
+      document.getElementById('game-ui').classList.remove('hidden');
+    }, 5000);
   } catch (error) {
     console.error('Error initializing game:', error);
     // Show error on the loading screen
