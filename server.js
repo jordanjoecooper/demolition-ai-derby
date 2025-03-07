@@ -239,28 +239,63 @@ io.on('connection', (socket) => {
                 const dz = player.position.z - gameState.bot.position.z;
                 const distance = Math.sqrt(dx * dx + dz * dz);
                 
-                if (distance < 10) { // Collision threshold
+                const COLLISION_RADIUS = 25; // Increased from 15 to 25 for more noticeable collisions
+                if (distance < COLLISION_RADIUS) {
                     // Calculate relative velocity
                     const relativeVelX = (player.velocity?.x || 0) - (gameState.bot.velocity?.x || 0);
                     const relativeVelZ = (player.velocity?.z || 0) - (gameState.bot.velocity?.z || 0);
                     const relativeSpeed = Math.sqrt(relativeVelX * relativeVelX + relativeVelZ * relativeVelZ);
                     
-                    // Calculate damage based on relative speed
-                    const damage = Math.max(5, relativeSpeed * 20);
+                    // Calculate normalized collision vector
+                    const normalX = dx / distance;
+                    const normalZ = dz / distance;
                     
-                    // Damage both player and bot
+                    // Immediately separate the objects to prevent overlap
+                    const overlap = COLLISION_RADIUS - distance;
+                    const separationX = normalX * overlap * 0.5;
+                    const separationZ = normalZ * overlap * 0.5;
+                    
+                    // Move player away from bot
+                    player.position.x += separationX;
+                    player.position.z += separationZ;
+                    
+                    // Move bot in opposite direction
+                    gameState.bot.position.x -= separationX;
+                    gameState.bot.position.z -= separationZ;
+                    
+                    // Calculate damage based on relative speed (with reasonable limits)
+                    const damage = Math.min(Math.max(5, relativeSpeed * 10), 30);
+                    
+                    // Apply stronger bounce effect
+                    const BOUNCE_FACTOR = 1.2; // Increased from 0.8 for more bounce
+                    const FRICTION = 0.8;
+                    
+                    // Calculate bounce velocities
+                    const dotProduct = (relativeVelX * normalX + relativeVelZ * normalZ);
+                    
+                    // Apply bounce to player with stronger effect
+                    player.velocity.x = (player.velocity.x - dotProduct * normalX * BOUNCE_FACTOR) * FRICTION;
+                    player.velocity.z = (player.velocity.z - dotProduct * normalZ * BOUNCE_FACTOR) * FRICTION;
+                    
+                    // Apply opposite bounce to bot
+                    gameState.bot.velocity.x = (dotProduct * normalX * BOUNCE_FACTOR) * FRICTION;
+                    gameState.bot.velocity.z = (dotProduct * normalZ * BOUNCE_FACTOR) * FRICTION;
+                    
+                    // Apply damage to player if not invincible
                     if (!player.invincible) {
-                        player.health -= Math.floor(damage * 0.3); // Player takes less damage from ramming
+                        const playerDamage = Math.floor(damage * 0.5); // Player takes half damage
+                        player.health -= playerDamage;
                         io.emit('playerDamaged', {
                             id: socket.id,
-                            damage: Math.floor(damage * 0.3),
+                            damage: playerDamage,
                             type: 'collision',
                             health: player.health
                         });
                     }
                     
-                    // Bot takes full damage
-                    const botEliminated = gameState.bot.takeDamage(damage);
+                    // Apply damage to bot
+                    const botDamage = Math.floor(damage * 1.5); // Bot takes more damage from collisions
+                    const botEliminated = gameState.bot.takeDamage(botDamage);
                     
                     // Handle bot elimination
                     if (botEliminated) {
@@ -269,16 +304,7 @@ io.on('connection', (socket) => {
                             eliminatedBy: socket.id,
                             points: BOT_CONSTANTS.KILL_POINTS
                         });
-                        
-                        // Award points to the player
-                        if (!player.score) player.score = 0;
-                        player.score += BOT_CONSTANTS.KILL_POINTS;
                     }
-                    
-                    // Apply knockback to bot
-                    const knockbackForce = 0.5;
-                    gameState.bot.velocity.x += (relativeVelX * knockbackForce);
-                    gameState.bot.velocity.z += (relativeVelZ * knockbackForce);
                     
                     // Check if player was eliminated
                     if (player.health <= 0) {
@@ -288,6 +314,9 @@ io.on('connection', (socket) => {
                         });
                         gameState.players.delete(socket.id);
                     }
+                    
+                    // Immediately broadcast the updated state after collision
+                    io.emit('gameUpdate', getGameStateForClient());
                 }
             }
             

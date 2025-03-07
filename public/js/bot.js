@@ -10,10 +10,10 @@ class LevelsBotRenderer {
 
     setupBot() {
         // Create a more visible bot mesh
-        const geometry = new THREE.BoxGeometry(8, 4, 12); // Larger size
+        const geometry = new THREE.BoxGeometry(10, 6, 14); // Slightly smaller for better collision
         const material = new THREE.MeshPhongMaterial({ 
             color: 0xff0000,
-            emissive: 0x330000, // Add some self-illumination
+            emissive: 0x330000,
             specular: 0x666666,
             shininess: 30
         });
@@ -22,22 +22,33 @@ class LevelsBotRenderer {
         this.bot.receiveShadow = true;
         this.bot.visible = false;
         
+        // Add visible collision box
+        const collisionBoxGeometry = new THREE.BoxGeometry(12, 8, 16);
+        const collisionBoxMaterial = new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3
+        });
+        this.collisionBox = new THREE.Mesh(collisionBoxGeometry, collisionBoxMaterial);
+        this.bot.add(this.collisionBox);
+        
         // Add details to make the bot more distinctive
-        const turretGeometry = new THREE.BoxGeometry(4, 2, 4);
+        const turretGeometry = new THREE.BoxGeometry(6, 3, 6);
         const turretMaterial = new THREE.MeshPhongMaterial({ 
             color: 0x333333,
             emissive: 0x111111
         });
         const turret = new THREE.Mesh(turretGeometry, turretMaterial);
-        turret.position.y = 2;
+        turret.position.y = 3;
         this.bot.add(turret);
 
         // Create gun barrel
-        const barrelGeometry = new THREE.CylinderGeometry(0.3, 0.3, 6);
+        const barrelGeometry = new THREE.CylinderGeometry(0.4, 0.4, 8);
         const barrelMaterial = new THREE.MeshPhongMaterial({ color: 0x222222 });
         const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
         barrel.rotation.z = Math.PI / 2;
-        barrel.position.z = 3;
+        barrel.position.z = 4;
         turret.add(barrel);
 
         this.scene.add(this.bot);
@@ -92,10 +103,19 @@ class LevelsBotRenderer {
         );
         this.bot.rotation.y = botState.rotation;
 
-        // Update health bar
-        const healthPercent = botState.health / 2000; // 2000 is max health
+        // Update health bar with smoother color transition
+        const healthPercent = botState.health / BOT_CONSTANTS.HEALTH;
         this.healthBar.scale.x = Math.max(0.1, healthPercent);
-        this.healthBar.material.color.setHSL(healthPercent / 3, 1, 0.5);
+        
+        // Color transitions from green to yellow to red as health decreases
+        const hue = healthPercent * 0.3; // 0.3 = green, 0 = red
+        const saturation = 1;
+        const lightness = 0.5;
+        this.healthBar.material.color.setHSL(hue, saturation, lightness);
+        
+        // Make health bar more visible
+        this.healthBar.position.y = 5; // Position higher above the bot
+        this.healthBar.material.opacity = 0.8; // More opaque
 
         // Handle attack state effects
         if (botState.state === 'attack') {
