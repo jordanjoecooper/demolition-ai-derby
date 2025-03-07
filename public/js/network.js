@@ -175,12 +175,24 @@ class GameNetwork {
     });
   }
 
-  // Send player update to server
+  // Send player position update to server
   sendPlayerUpdate(position, rotation) {
-    this.socket.emit('playerUpdate', {
-      position: position,
-      rotation: rotation
-    });
+    if (!position || typeof position.x === 'undefined') {
+      console.warn('Invalid position data:', position);
+      return;
+    }
+
+    // Ensure we're only sending the necessary data
+    const updateData = {
+      position: {
+        x: position.x,
+        y: position.y,
+        z: position.z
+      },
+      rotation: rotation || 0
+    };
+
+    this.socket.emit('playerUpdate', updateData);
   }
 
   // Send collision event to server

@@ -106,6 +106,9 @@ io.on('connection', (socket) => {
       player.position = data.position;
       player.rotation = data.rotation;
       player.lastUpdateTime = Date.now();
+
+      // Log position update (uncomment for debugging)
+      // console.log(`Player ${socket.id} position updated:`, player.position);
     }
   });
 
@@ -248,7 +251,10 @@ function handlePlayerDeath(playerId) {
 // Game update loop (20 updates per second)
 setInterval(() => {
   checkInactivePlayers();  // Check for inactive players
-  io.emit('gameUpdate', getGameStateForClient());
+  const gameState = getGameStateForClient();
+  // Log number of players in update (uncomment for debugging)
+  // console.log('Broadcasting game update. Players:', Object.keys(gameState.players).length);
+  io.emit('gameUpdate', gameState);
 }, 50);
 
 // Start the server

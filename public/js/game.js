@@ -797,8 +797,17 @@ class Game {
 
   // Handle game state updates
   handleGameUpdate(data) {
+    if (!data || !data.players) {
+      console.warn('Received invalid game update data');
+      return;
+    }
+
     // Get current list of players
     const currentPlayers = new Set(Object.keys(data.players));
+    const localPlayerId = this.network.getPlayerId();
+
+    // Log update details
+    console.log(`Game update: ${currentPlayers.size} players, local ID: ${localPlayerId}`);
 
     // Get list of players we're currently rendering
     const renderedPlayers = new Set(this.renderer.getPlayerIds());
@@ -806,21 +815,32 @@ class Game {
     // Remove players that are no longer in the game
     for (const id of renderedPlayers) {
       if (!currentPlayers.has(id)) {
+        console.log(`Removing player ${id} - no longer in game`);
         this.renderer.removePlayer(id);
       }
     }
 
     // Update other players
     Object.entries(data.players).forEach(([id, player]) => {
-      // Skip local player as we handle their position locally
-      if (id !== this.network.getPlayerId() && !player.eliminated) {
+      // Skip local player and eliminated players
+      if (id !== localPlayerId && !player.eliminated) {
+        // Verify player data
+        if (!player.position || typeof player.position.x === 'undefined') {
+          console.warn(`Invalid position data for player ${id}:`, player);
+          return;
+        }
+
+        // Log position updates (uncomment for debugging)
+        // console.log(`Updating player ${id} position:`, player.position);
+
+        // Update player in renderer
         this.renderer.updatePlayer(
           id,
           player.position,
-          player.rotation,
-          player.health,
-          player.invincible,
-          player.boosting
+          player.rotation || 0,
+          player.health || 100,
+          player.invincible || false,
+          player.boosting || false
         );
       }
     });
