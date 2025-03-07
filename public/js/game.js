@@ -4,6 +4,7 @@ class Game {
     this.renderer = renderer;
     this.network = network;
     this.controls = controls;
+    this.radar = new Radar(this);
 
     // Initialize bot renderer (will only be used if bot is enabled)
     this.botRenderer = null;
@@ -433,6 +434,9 @@ class Game {
     // Update local player
     this.updateLocalPlayer();
 
+    // Update radar
+    this.radar.update();
+
     // Check for collisions with other players
     this.checkPlayerCollisions();
 
@@ -627,7 +631,8 @@ class Game {
       }
 
       // Show the indicator with score
-      this.airTimeIndicator.textContent = `AIR TIME! +${score}`;
+      const scoreText = score ? ` +${score}` : '';
+      this.airTimeIndicator.textContent = `AIR TIME!${scoreText}`;
       this.airTimeIndicator.classList.add('visible');
 
       // Hide after animation completes
@@ -945,7 +950,10 @@ class Game {
     const localPlayerId = this.network.getPlayerId();
 
     // Get list of players we're currently rendering
-    const renderedPlayers = new Set(this.renderer.getPlayerIds());
+    let renderedPlayers = new Set();
+    if (this.renderer && typeof this.renderer.getPlayerIds === 'function') {
+      renderedPlayers = new Set(this.renderer.getPlayerIds());
+    }
 
     // Remove players that are no longer in the game
     for (const id of renderedPlayers) {

@@ -922,4 +922,9 @@ class GameRenderer {
 
     return playerModel;
   }
+
+  // Get array of all player IDs currently being rendered
+  getPlayerIds() {
+    return Object.keys(this.playerModels);
+  }
 }
