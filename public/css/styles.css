@@ -177,6 +177,18 @@ body, html {
   position: relative;
   overflow: hidden;
   line-height: 15px;
+  will-change: transform;
+}
+
+#health-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff0000, #ff3333);
+  transform-origin: left;
+  will-change: transform;
 }
 
 .health-label {
@@ -192,18 +204,7 @@ body, html {
   z-index: 1;
   font-family: monospace;
   letter-spacing: 1px;
-}
-
-/* Add health fill bar */
-#health-fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(90deg, #ff0000, #ff3333);
-  transition: transform 0.3s ease;
-  transform-origin: left;
+  pointer-events: none;
 }
 
 /* Remove old health text styles */

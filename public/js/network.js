@@ -4,7 +4,6 @@ class GameNetwork {
     console.log('GameNetwork constructor called');
     // Initialize Socket.IO connection
     try {
-      console.log('Initializing Socket.IO connection');
       this.socket = io();
       this.playerId = null;
       this.username = username;
@@ -144,6 +143,11 @@ class GameNetwork {
 
     // Player eliminated
     this.socket.on('playerEliminated', (data) => {
+      if (data.id === this.playerId) {
+        // Immediately set health to 0 when eliminated
+        this.updateHealthUI(0);
+      }
+      
       delete this.players[data.id];
 
       if (this.onPlayerEliminated) {
@@ -190,13 +194,38 @@ class GameNetwork {
     });
 
     this.socket.on('playerRespawned', (data) => {
+      // Add player back to players object with full health
+      this.players[data.id] = {
+        ...data,
+        health: 100,
+        invincible: true
+      };
+
       if (data.id === this.playerId) {
-        // Reset health to 100 when local player respawns
+        // Force an immediate health bar reset
+        const healthFill = document.getElementById('health-fill');
+        if (healthFill) {
+          // Remove any existing transitions
+          healthFill.style.transition = 'none';
+          // Force a reflow to ensure the transition removal takes effect
+          void healthFill.offsetWidth;
+          // Reset the transform
+          healthFill.style.transform = 'scaleX(1)';
+          // Re-enable transition after a short delay
+          requestAnimationFrame(() => {
+            healthFill.style.transition = 'transform 0.3s ease';
+          });
+        }
+        // Also call updateHealthUI to ensure everything is in sync
         this.updateHealthUI(100);
       }
+      
       if (this.onPlayerRespawned) {
         this.onPlayerRespawned(data);
       }
+
+      // Update player count UI
+      this.updatePlayerCountUI();
     });
 
     // Handle score updates
@@ -276,17 +305,31 @@ class GameNetwork {
       // Ensure health is between 0 and 100
       health = Math.max(0, Math.min(100, health));
       
-      // Update health fill transform
-      healthFill.style.transform = `scaleX(${health / 100})`;
+      // Special handling for full health reset
+      if (health === 100) {
+        // Remove transition temporarily
+        healthFill.style.transition = 'none';
+        // Force a reflow
+        void healthFill.offsetWidth;
+        // Set transform
+        healthFill.style.transform = 'scaleX(1)';
+        // Re-enable transition
+        requestAnimationFrame(() => {
+          healthFill.style.transition = 'transform 0.3s ease';
+        });
+      } else {
+        // Normal health updates
+        healthFill.style.transition = 'transform 0.3s ease';
+        healthFill.style.transform = `scaleX(${health / 100})`;
+      }
 
       // If health is low, add visual feedback
       if (health < 30) {
         const gameContainer = document.getElementById('game-container');
         if (gameContainer) {
           gameContainer.style.animation = 'none';
-          setTimeout(() => {
-            gameContainer.style.animation = 'damage-flash 0.5s';
-          }, 10);
+          void gameContainer.offsetWidth; // Force reflow
+          gameContainer.style.animation = 'damage-flash 0.5s';
         }
       }
     }
@@ -317,7 +360,16 @@ class GameNetwork {
     this.onTestModeStatus = callbacks.onTestModeStatus;
 
     // Initialize health to 100 when callbacks are set (game starts)
-    this.updateHealthUI(100);
+    // Force immediate update without transition
+    const healthFill = document.getElementById('health-fill');
+    if (healthFill) {
+      healthFill.style.transition = 'none';
+      void healthFill.offsetWidth;
+      healthFill.style.transform = 'scaleX(1)';
+      requestAnimationFrame(() => {
+        healthFill.style.transition = 'transform 0.3s ease';
+      });
+    }
   }
 
   // Get player ID
