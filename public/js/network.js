@@ -10,6 +10,10 @@ class GameNetwork {
       this.username = username;
       this.players = {};  // Change back to object since server sends object format
 
+      // Initialize death sound
+      this.deathSound = new Audio('sounds/death.mp3');
+      this.deathSound.volume = 0.5; // Set volume to 50%
+
       // Event callbacks
       this.onGameState = null;
       this.onPlayerJoined = null;
@@ -153,6 +157,9 @@ class GameNetwork {
         message = data.reason === 'inactivity' ?
           'You were eliminated due to inactivity!' :
           'You were eliminated! Respawning...';
+        // Play death sound when local player is eliminated
+        this.deathSound.currentTime = 0; // Reset sound to start
+        this.deathSound.play().catch(e => console.log('Error playing death sound:', e));
       } else {
         message = data.reason === 'inactivity' ?
           'Player eliminated due to inactivity!' :
@@ -183,6 +190,10 @@ class GameNetwork {
     });
 
     this.socket.on('playerRespawned', (data) => {
+      if (data.id === this.playerId) {
+        // Reset health to 100 when local player respawns
+        this.updateHealthUI(100);
+      }
       if (this.onPlayerRespawned) {
         this.onPlayerRespawned(data);
       }
@@ -251,36 +262,32 @@ class GameNetwork {
     const playerCountElement = document.getElementById('player-count');
 
     if (playerCountElement) {
-      playerCountElement.textContent = `${playerCount} players`;
+      const text = playerCount === 1 ? 'player' : 'players';
+      playerCountElement.textContent = `${playerCount} ${text}`;
     }
   }
 
   // Update health UI
   updateHealthUI(health) {
     const healthBar = document.getElementById('health-bar');
+    const healthFill = document.getElementById('health-fill');
 
-    if (healthBar) {
-      healthBar.style.width = `${health}%`;
+    if (healthBar && healthFill) {
+      // Ensure health is between 0 and 100
+      health = Math.max(0, Math.min(100, health));
+      
+      // Update health fill transform
+      healthFill.style.transform = `scaleX(${health / 100})`;
 
-      // Change color based on health level
-      if (health > 60) {
-        healthBar.style.backgroundColor = '#f00'; // Red
-      } else if (health > 30) {
-        healthBar.style.backgroundColor = '#ff7700'; // Orange
-      } else {
-        healthBar.style.backgroundColor = '#ff0000'; // Bright red
-      }
-    }
-
-    // If health is low, add visual feedback
-    if (health < 30) {
-      // Add screen flash effect
-      const gameContainer = document.getElementById('game-container');
-      if (gameContainer) {
-        gameContainer.style.animation = 'none';
-        setTimeout(() => {
-          gameContainer.style.animation = 'damage-flash 0.5s';
-        }, 10);
+      // If health is low, add visual feedback
+      if (health < 30) {
+        const gameContainer = document.getElementById('game-container');
+        if (gameContainer) {
+          gameContainer.style.animation = 'none';
+          setTimeout(() => {
+            gameContainer.style.animation = 'damage-flash 0.5s';
+          }, 10);
+        }
       }
     }
   }
@@ -308,6 +315,9 @@ class GameNetwork {
     this.onPlayerBoosting = callbacks.onPlayerBoosting;
     this.onPlayerRespawned = callbacks.onPlayerRespawned;
     this.onTestModeStatus = callbacks.onTestModeStatus;
+
+    // Initialize health to 100 when callbacks are set (game starts)
+    this.updateHealthUI(100);
   }
 
   // Get player ID

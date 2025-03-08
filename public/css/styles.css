@@ -162,67 +162,58 @@ body, html {
 }
 
 #health-container {
-  position: fixed;
-  top: 70px;  /* Below player count */
-  left: 10px;
-  width: 200px;
-  z-index: 100;
+  position: static;
+  padding: 1px 0 0 0;
+  margin: 0;
+  width: 100%;
 }
 
 #health-bar {
   width: 100%;
-  height: 20px;
-  background: linear-gradient(90deg, #ff0000, #ff3333);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  height: 15px;
+  background: rgba(255, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 3px;
-  transition: width 0.3s ease;
   position: relative;
   overflow: hidden;
-  margin-bottom: 5px;
+  line-height: 15px;
 }
 
-#health-bar::before {
-  content: '';
+.health-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 10px;
+  font-weight: bold;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  z-index: 1;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+
+/* Add health fill bar */
+#health-fill {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.2) 50%,
-    rgba(255, 255, 255, 0.1) 100%
-  );
-  animation: healthShine 2s linear infinite;
-}
-
-@keyframes healthShine {
-  0% {
-    transform: translateX(-200px);
-  }
-  100% {
-    transform: translateX(200px);
-  }
-}
-
-#boost-bar-container {
-  width: 200px;
-  height: 20px;
-  background-color: rgba(0, 0, 0, 0.5);
-  border: 2px solid #fff;
-  border-radius: 10px;
-  margin-bottom: 10px;
-  overflow: hidden;
-}
-
-#boost-bar {
+  height: 100%;
   width: 100%;
-  height: 20px;
-  background: linear-gradient(90deg, #00ffff, #0099ff);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #ff0000, #ff3333);
+  transition: transform 0.3s ease;
+  transform-origin: left;
+}
+
+/* Remove old health text styles */
+.health-text {
+  display: none;
+}
+
+/* Remove boost bar styles */
+#boost-bar-container, #boost-bar {
+  display: none;
 }
 
 #player-count, #round-info {
@@ -418,30 +409,34 @@ canvas {
 }
 
 /* FPS Counter */
-#fps-counter {
+#fps-counter, #player-count {
+  position: static;
+  background: none;
+  padding: 0;
+  margin: 0;
+  font-size: 14px;
+  color: #fff;
+}
+
+.stats-container {
   position: fixed;
   top: 10px;
   left: 10px;
-  color: #0f0;
-  font-family: monospace;
-  font-size: 14px;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   z-index: 100;
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 5px 10px;
-  border-radius: 3px;
+  width: 200px;
 }
 
-#player-count {
-  position: fixed;
-  top: 40px;  /* Below FPS counter */
-  left: 10px;
-  color: #fff;
+.stats-item {
+  margin-bottom: 8px;
   font-family: monospace;
-  font-size: 14px;
-  z-index: 100;
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 5px 10px;
-  border-radius: 3px;
+}
+
+.stats-item:last-child {
+  margin-bottom: 0;
 }
 
 /* Damage Flash Animation */

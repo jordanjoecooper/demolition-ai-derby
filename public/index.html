@@ -41,11 +41,15 @@
 
     <!-- Game UI - initially hidden -->
     <div id="game-ui" class="hidden">
-      <div id="fps-counter">FPS: 0</div>
-      <div id="player-count">0 players</div>
-      <div id="health-container">
-        <div id="health-bar"></div>
-        <div id="boost-bar"></div>
+      <div class="stats-container">
+        <div class="stats-item" id="fps-counter">FPS: 0</div>
+        <div class="stats-item" id="player-count">0 players</div>
+        <div class="stats-item" id="health-container">
+          <div id="health-bar">
+            <div id="health-fill"></div>
+            <span class="health-label">HEALTH</span>
+          </div>
+        </div>
       </div>
       <div id="elimination-message" style="display: none;"></div>
 
