@@ -278,6 +278,9 @@ class Game {
     this.localPlayer.invincibilityFading = false;
     this.localPlayer.invincibilityFadeStart = 0;
 
+    // Update health UI immediately
+    this.network.updateHealthUI(100);
+
     // Set invincibility timer with fade
     setTimeout(() => {
       // Start fading
@@ -880,6 +883,14 @@ class Game {
       // Local player eliminated
       this.localPlayer.eliminated = true;
       this.localPlayer.health = 0;
+
+      // Stop background music immediately
+      const backgroundMusic = document.querySelector('audio#background-music');
+      if (backgroundMusic) {
+        backgroundMusic.pause();
+        backgroundMusic.currentTime = 0;
+      }
+
       // Remove local player's car from the map
       this.renderer.removePlayer(data.id);
       // Show death screen

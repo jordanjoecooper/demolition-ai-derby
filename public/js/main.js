@@ -1,6 +1,12 @@
 // Main entry point for the game
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM content loaded');
+  
+  // Initialize background music
+  const backgroundMusic = new Audio('sounds/cyber.mp3');
+  backgroundMusic.loop = true; // Make the music loop
+  backgroundMusic.volume = 0.3; // Set to 30% volume
+
   // Initialize game components
   const usernameInput = document.getElementById('username-input');
   const usernameModal = document.getElementById('username-modal');
@@ -9,8 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingProgress = document.getElementById('loading-progress');
   const usernameForm = document.getElementById('username-form');
   const usernameError = document.getElementById('username-error');
+  const radar = document.getElementById('radar');
 
-  // Initially hide loading screen and show username modal
+  // Initially hide loading screen, radar, and show username modal
   loadingScreen.classList.add('hidden');
   usernameModal.classList.remove('hidden');
 
@@ -66,6 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show loading screen and initialize game
     showLoadingScreen();
 
+    // Start playing background music
+    backgroundMusic.play().catch(e => console.log('Error playing background music:', e));
+
     // Initialize game if not already done
     if (!gameInitialized) {
       console.log('Initializing game with username:', username);
@@ -115,11 +125,22 @@ document.addEventListener('DOMContentLoaded', () => {
       // Set up onLoaded callback for final initialization
       renderer.onLoaded(() => {
         console.log('Renderer loaded callback triggered');
-        updateLoadingProgress(5, 1); // Final loading step
+        updateLoadingProgress(5, 1);
         setTimeout(() => {
           document.getElementById('loading-screen').classList.add('hidden');
           document.getElementById('game-ui').classList.remove('hidden');
-        }, 500); // Short delay to show 100% completion
+          
+          // Show radar with a slight delay to ensure proper initialization
+          setTimeout(() => {
+            console.log('Showing radar');
+            const radar = document.getElementById('radar');
+            if (radar) {
+              radar.classList.add('visible');
+            } else {
+              console.error('Radar element not found');
+            }
+          }, 100);
+        }, 500);
       });
 
     } catch (error) {

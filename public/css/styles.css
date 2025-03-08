@@ -545,13 +545,21 @@ canvas {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  width: 150px;
-  height: 150px;
+  width: 150px !important;
+  height: 150px !important;
   background-color: rgba(0, 0, 0, 0.8);
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
-  z-index: 1000;
   pointer-events: none;
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.radar.visible {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* Hit Indicator */

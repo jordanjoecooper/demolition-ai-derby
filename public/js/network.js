@@ -1,7 +1,17 @@
 // Handles network communication with Socket.IO
 class GameNetwork {
+  // Static flag to control console logging
+  static disableLogging = true;
+
+  // Helper method for conditional logging
+  static log(...args) {
+    if (!this.disableLogging) {
+      console.log(...args);
+    }
+  }
+
   constructor(username) {
-    console.log('GameNetwork constructor called');
+    GameNetwork.log('GameNetwork constructor called');
     // Initialize Socket.IO connection
     try {
       this.socket = io();
@@ -33,11 +43,11 @@ class GameNetwork {
 
   // Set up Socket.IO event listeners
   setupEventListeners() {
-    console.log('Setting up Socket.IO event listeners');
+    GameNetwork.log('Setting up Socket.IO event listeners');
 
     // Connection established
     this.socket.on('connect', () => {
-      console.log('Connected to server with ID:', this.socket.id);
+      GameNetwork.log('Connected to server with ID:', this.socket.id);
       this.playerId = this.socket.id;
 
       // Send username to server (could be extended in the future)
@@ -58,9 +68,9 @@ class GameNetwork {
 
     // Receive initial game state
     this.socket.on('gameState', (data) => {
-      console.log('Received initial game state:', data);
-      console.log('Players data type:', typeof data.players);
-      console.log('Players data:', data.players);
+      GameNetwork.log('Received initial game state:', data);
+      GameNetwork.log('Players data type:', typeof data.players);
+      GameNetwork.log('Players data:', data.players);
       this.players = data.players || {};
 
       if (this.onGameState) {
@@ -111,8 +121,8 @@ class GameNetwork {
 
     // Game state update
     this.socket.on('gameUpdate', (data) => {
-      console.log('Game update received:', data);
-      console.log('Players in update:', data.players);
+      GameNetwork.log('Game update received:', data);
+      GameNetwork.log('Players in update:', data.players);
       this.players = data.players || {};
 
       if (this.onGameUpdate) {
@@ -143,9 +153,16 @@ class GameNetwork {
 
     // Player eliminated
     this.socket.on('playerEliminated', (data) => {
-      console.log('Player eliminated:', data.id, 'Local player:', this.playerId);
+      GameNetwork.log('Player eliminated:', data.id, 'Local player:', this.playerId);
       
       if (data.id === this.playerId) {
+        // Stop background music immediately
+        const backgroundMusic = document.querySelector('audio');
+        if (backgroundMusic) {
+          backgroundMusic.pause();
+          backgroundMusic.currentTime = 0;
+        }
+
         // Set health to 0
         const healthFill = document.getElementById('health-fill');
         if (healthFill) {
@@ -181,7 +198,7 @@ class GameNetwork {
       this.showEliminationMessage(message);
 
       // Log the current state
-      console.log('Players after elimination:', this.players);
+      GameNetwork.log('Players after elimination:', this.players);
       
       // Update player count UI
       this.updatePlayerCountUI();
@@ -206,7 +223,7 @@ class GameNetwork {
     });
 
     this.socket.on('playerRespawned', (data) => {
-      console.log('Player respawned:', data.id, 'Local player:', this.playerId);
+      GameNetwork.log('Player respawned:', data.id, 'Local player:', this.playerId);
       
       // First, ensure the player is added back to the players object
       this.players[data.id] = {
@@ -219,10 +236,10 @@ class GameNetwork {
 
       // If it's the local player, reset the health bar
       if (data.id === this.playerId) {
-        console.log('Resetting local player health bar');
+        GameNetwork.log('Resetting local player health bar');
         const healthFill = document.getElementById('health-fill');
         if (healthFill) {
-          // First, remove transition and set to full
+          // Disable transition and set to full width
           healthFill.style.transition = 'none';
           healthFill.style.transform = 'scaleX(1)';
           
@@ -231,14 +248,30 @@ class GameNetwork {
           
           // Re-enable transition for future updates
           healthFill.style.transition = 'transform 0.3s ease';
+
+          // Restart background music
+          const backgroundMusic = document.querySelector('audio');
+          if (backgroundMusic) {
+            backgroundMusic.currentTime = 0;
+            backgroundMusic.play().catch(e => console.log('Error playing background music:', e));
+          }
         }
 
-        // Also update health through the normal health update function
-        this.updateHealthUI(100);
+        // Update health through the normal health update function with no transition
+        const healthBar = document.getElementById('health-bar');
+        if (healthBar) {
+          healthBar.style.transition = 'none';
+          void healthBar.offsetWidth;
+          this.updateHealthUI(100);
+          // Re-enable transitions after a short delay
+          setTimeout(() => {
+            healthBar.style.transition = 'transform 0.3s ease';
+          }, 50);
+        }
       }
       
       // Log current players state
-      console.log('Current players after respawn:', this.players);
+      GameNetwork.log('Current players after respawn:', this.players);
       
       // Update callbacks
       if (this.onPlayerRespawned) {
@@ -308,8 +341,8 @@ class GameNetwork {
   // Update player count UI
   updatePlayerCountUI() {
     const playerCount = Object.keys(this.players || {}).length;
-    console.log('Player count update - Count:', playerCount);
-    console.log('Current players:', Object.keys(this.players || {}));
+    GameNetwork.log('Player count update - Count:', playerCount);
+    GameNetwork.log('Current players:', Object.keys(this.players || {}));
     
     const playerCountElement = document.getElementById('player-count');
     if (playerCountElement) {
