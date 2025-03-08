@@ -131,6 +131,17 @@ class Game {
       onCameraRotate: (direction) => this.renderer.rotateOrbitCamera(direction),
       onCameraToggle: () => this.renderer.toggleCameraMode()
     });
+
+    // Add trick system properties
+    this.trickSystem = {
+      isPerformingTrick: false,
+      trickStartTime: 0,
+      rotations: 0,
+      flips: 0,
+      lastRotation: 0,
+      lastFlip: 0,
+      trickScore: 0
+    };
   }
 
   createDeathScreen() {
@@ -498,8 +509,45 @@ class Game {
   updateLocalPlayer() {
     const inputs = this.controls.getInputs();
 
-    // Apply rotation (only when on ground)
-    if (!this.localPlayer.isInAir) {
+    // Handle aerial tricks when in the air and space is held
+    if (this.localPlayer.isInAir && inputs.space) {
+      // Start trick if not already performing one
+      if (!this.trickSystem.isPerformingTrick) {
+        this.startTrick();
+      }
+
+      // Track rotations and flips
+      if (inputs.left || inputs.right) {
+        const rotationAmount = (inputs.right ? -1 : 1) * Math.PI / 16; // Increased rotation speed
+        this.trickSystem.lastRotation += rotationAmount;
+        this.trickSystem.rotations += Math.abs(rotationAmount);
+        
+        // Update vehicle model rotation around Y axis
+        const model = this.renderer.playerModels[this.network.getPlayerId()];
+        if (model) {
+          model.rotation.y = this.trickSystem.lastRotation;
+        }
+      }
+
+      if (inputs.forward || inputs.backward) {
+        const flipAmount = (inputs.forward ? -1 : 1) * Math.PI / 16; // Increased flip speed
+        this.trickSystem.lastFlip += flipAmount;
+        this.trickSystem.flips += Math.abs(flipAmount);
+        
+        // Update vehicle model rotation around X axis
+        const model = this.renderer.playerModels[this.network.getPlayerId()];
+        if (model) {
+          model.rotation.x = this.trickSystem.lastFlip;
+        }
+      }
+    } else if (this.trickSystem.isPerformingTrick) {
+      // Landing the trick
+      this.landTrick();
+    }
+
+    // Original movement code
+    // Apply rotation (only when on ground and not performing trick)
+    if (!this.localPlayer.isInAir || !this.trickSystem.isPerformingTrick) {
       if (inputs.left) {
         this.localPlayer.rotation += this.rotationSpeed;
       }
@@ -532,10 +580,15 @@ class Game {
     this.localPlayer.velocity.x *= (1 - this.deceleration * frictionFactor);
     this.localPlayer.velocity.z *= (1 - this.deceleration * frictionFactor);
 
-    // Check if on a ramp
+    // Check ramp collision with updated collision response
     const rampCheck = this.renderer.checkRampCollision(this.localPlayer.position);
-
-    if (rampCheck.onRamp) {
+    
+    if (rampCheck.collision) {
+      // Handle side collision with ramp
+      const bounceForce = 0.5;
+      this.localPlayer.velocity.x = rampCheck.normal.x * bounceForce * Math.abs(this.localPlayer.velocity.x);
+      this.localPlayer.velocity.z = rampCheck.normal.z * bounceForce * Math.abs(this.localPlayer.velocity.z);
+    } else if (rampCheck.onRamp) {
       // On a ramp - adjust height and add upward velocity when reaching the end
       const targetHeight = rampCheck.height;
 
@@ -1219,6 +1272,57 @@ class Game {
       this.hitIndicatorTimeout = setTimeout(() => {
         this.hitIndicator.classList.remove('visible');
       }, 500);
+    }
+  }
+
+  startTrick() {
+    this.trickSystem.isPerformingTrick = true;
+    this.trickSystem.trickStartTime = Date.now();
+    this.trickSystem.rotations = 0;
+    this.trickSystem.flips = 0;
+    this.trickSystem.lastRotation = 0;
+    this.trickSystem.lastFlip = 0;
+    this.trickSystem.trickScore = 0;
+  }
+
+  landTrick() {
+    // Calculate trick score
+    const airTime = (Date.now() - this.trickSystem.trickStartTime) / 1000;
+    const rotations = Math.floor(this.trickSystem.rotations / (Math.PI * 2));
+    const flips = Math.floor(this.trickSystem.flips / (Math.PI * 2));
+    
+    // Score calculation
+    const score = Math.floor((rotations * 100 + flips * 150) * (1 + airTime * 0.5));
+
+    // Check if landing upright
+    const normalizedFlip = Math.abs(this.trickSystem.lastFlip % (Math.PI * 2));
+    const isUpright = normalizedFlip < Math.PI / 4 || 
+                     Math.abs(normalizedFlip - Math.PI * 2) < Math.PI / 4;
+
+    if (!isUpright) {
+      // Player didn't land properly
+      this.localPlayer.health = 0;
+      this.network.updateHealthUI(0);
+      this.localPlayer.eliminated = true;
+      this.network.socket.emit('playerDied', { id: this.network.getPlayerId() });
+      this.showDeathScreen();
+    } else if (score > 0) {
+      // Show score popup
+      this.showScorePopup(score);
+      // Update trick score
+      this.updateTrickScore(score / 100);
+    }
+
+    // Reset trick system
+    this.trickSystem.isPerformingTrick = false;
+    this.trickSystem.lastFlip = 0;
+    this.trickSystem.lastRotation = 0;
+
+    // Reset vehicle model rotation
+    const model = this.renderer.playerModels[this.network.getPlayerId()];
+    if (model) {
+      model.rotation.x = 0;
+      model.rotation.y = this.localPlayer.rotation; // Reset to vehicle's actual rotation
     }
   }
 }

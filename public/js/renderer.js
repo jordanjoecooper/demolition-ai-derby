@@ -284,67 +284,79 @@ class GameRenderer {
       emissive: 0xff00ff,
       emissiveIntensity: 0.5,
       roughness: 0.4,
-      metalness: 0.8
+      metalness: 0.8,
+      side: THREE.DoubleSide
     });
 
+    // Only 3 strategic ramp positions
     const rampPositions = [
-      { x: -300, z: -200, rotation: Math.PI / 4 },
-      { x: 300, z: 200, rotation: -Math.PI / 4 },
-      { x: 0, z: -300, rotation: 0 }
+      // Center ramp
+      { x: 0, z: 200, rotation: Math.PI }, // North facing south
+      
+      // Side ramps
+      { x: -200, z: -100, rotation: -Math.PI/4 }, // Southwest
+      { x: 200, z: -100, rotation: Math.PI/4 }  // Southeast
     ];
 
     rampPositions.forEach((pos) => {
-      const rampLength = 80;
-      const rampWidth = 40;
-      const rampHeight = 20;
+      // Adjusted ramp dimensions for better drivability
+      const rampLength = 120;  // Longer ramp
+      const rampWidth = 60;   // Wider platform
+      const rampHeight = 25;  // Slightly higher
 
-      const rampGeometry = new THREE.BufferGeometry();
-      const vertices = new Float32Array([
-        -rampWidth/2, 0, -rampLength/2,
-        rampWidth/2, 0, -rampLength/2,
-        rampWidth/2, 0, rampLength/2,
-        -rampWidth/2, 0, rampLength/2,
-        -rampWidth/2, 0, -rampLength/2,
-        rampWidth/2, 0, -rampLength/2,
-        rampWidth/2, rampHeight, rampLength/2,
-        -rampWidth/2, rampHeight, rampLength/2
-      ]);
+      // Create a solid ramp using BoxGeometry for the base
+      const baseGeometry = new THREE.BoxGeometry(rampWidth, 2, rampLength * 0.4); // Shorter base
+      const base = new THREE.Mesh(baseGeometry, rampMaterial);
+      base.position.z = -rampLength * 0.3; // Move base back
 
-      const indices = [
-        0, 1, 2, 0, 2, 3,
-        2, 6, 7, 2, 7, 3,
-        0, 4, 5, 0, 5, 1,
-        0, 3, 7, 0, 7, 4,
-        1, 5, 6, 1, 6, 2,
-        4, 7, 6, 4, 6, 5
-      ];
+      // Create the inclined surface with a gentler slope
+      const surfaceGeometry = new THREE.BoxGeometry(rampWidth, 2, rampLength);
+      const surface = new THREE.Mesh(surfaceGeometry, rampMaterial);
+      surface.position.y = rampHeight / 2;
+      surface.rotation.x = Math.PI / 8; // Gentler slope angle (22.5 degrees)
 
-      rampGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
-      rampGeometry.setIndex(indices);
-      rampGeometry.computeVertexNormals();
+      // Create side walls
+      const wallHeight = rampHeight * 1.1;
+      const wallGeometry = new THREE.BoxGeometry(2, wallHeight, rampLength);
+      const leftWall = new THREE.Mesh(wallGeometry, rampMaterial);
+      const rightWall = new THREE.Mesh(wallGeometry, rampMaterial);
 
-      const ramp = new THREE.Mesh(rampGeometry, rampMaterial);
-      ramp.position.set(pos.x, 0, pos.z);
-      ramp.rotation.y = pos.rotation;
-      ramp.castShadow = true;
-      ramp.receiveShadow = true;
+      leftWall.position.x = -rampWidth/2;
+      leftWall.position.y = wallHeight/2;
+      rightWall.position.x = rampWidth/2;
+      rightWall.position.y = wallHeight/2;
+
+      // Create a group to hold all ramp parts
+      const rampGroup = new THREE.Group();
+      rampGroup.add(base);
+      rampGroup.add(surface);
+      rampGroup.add(leftWall);
+      rampGroup.add(rightWall);
+
+      // Position and rotate the entire ramp
+      rampGroup.position.set(pos.x, 0, pos.z);
+      rampGroup.rotation.y = pos.rotation;
 
       // Add neon trim
-      const edgeGeometry = new THREE.EdgesGeometry(rampGeometry);
+      const edgeGeometry = new THREE.EdgesGeometry(surfaceGeometry);
       const edgeMaterial = new THREE.LineBasicMaterial({ 
         color: 0xff00ff,
-        linewidth: 2
+        linewidth: 3
       });
       const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-      ramp.add(edges);
+      edges.position.copy(surface.position);
+      edges.rotation.copy(surface.rotation);
+      rampGroup.add(edges);
 
-      this.scene.add(ramp);
+      this.scene.add(rampGroup);
 
+      // Store ramp data for collision detection
       this.ramps.push({
-        mesh: ramp,
+        mesh: rampGroup,
         position: { x: pos.x, y: rampHeight / 2, z: pos.z },
         size: { width: rampWidth, height: rampHeight, length: rampLength },
-        rotation: pos.rotation
+        rotation: pos.rotation,
+        slope: Math.PI / 8 // Store the slope angle for physics calculations
       });
     });
   }
@@ -466,7 +478,7 @@ class GameRenderer {
     });
   }
 
-  // Check if a position is on a ramp and return height
+  // Updated ramp collision check for better physics
   checkRampCollision(position) {
     for (const ramp of this.ramps) {
       // Transform position to ramp's local space
@@ -484,19 +496,38 @@ class GameRenderer {
       if (rotatedX >= -halfWidth && rotatedX <= halfWidth &&
           rotatedZ >= -halfLength && rotatedZ <= halfLength) {
 
+        // Check if the point is near the side walls
+        const sideWallThreshold = 5;
+        if (Math.abs(rotatedX) > halfWidth - sideWallThreshold) {
+          return {
+            onRamp: false,
+            collision: true,
+            normal: { 
+              x: Math.sign(rotatedX) * Math.cos(ramp.rotation),
+              z: Math.sign(rotatedX) * Math.sin(ramp.rotation)
+            }
+          };
+        }
+
         // Calculate height based on position on the ramp
-        // Map z from [-halfLength, halfLength] to [0, ramp.size.height]
         const normalizedZ = (rotatedZ + halfLength) / ramp.size.length;
         const height = normalizedZ * ramp.size.height;
 
+        // Add slope information for better physics
         return {
           onRamp: true,
-          height: height
+          height: height,
+          collision: false,
+          slope: ramp.slope,
+          direction: {
+            x: Math.sin(ramp.rotation),
+            z: Math.cos(ramp.rotation)
+          }
         };
       }
     }
 
-    return { onRamp: false, height: 0 };
+    return { onRamp: false, collision: false, height: 0 };
   }
 
   // Check if a position collides with any obstacle
