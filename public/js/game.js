@@ -885,7 +885,7 @@ class Game {
       this.localPlayer.health = 0;
 
       // Stop background music immediately
-      const backgroundMusic = document.querySelector('audio#background-music');
+      const backgroundMusic = document.getElementById('background-music');
       if (backgroundMusic) {
         backgroundMusic.pause();
         backgroundMusic.currentTime = 0;

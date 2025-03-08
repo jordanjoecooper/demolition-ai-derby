@@ -3,8 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM content loaded');
   
   // Initialize background music
-  const backgroundMusic = new Audio('sounds/cyber.mp3');
-  backgroundMusic.loop = true; // Make the music loop
+  const backgroundMusic = document.getElementById('background-music');
   backgroundMusic.volume = 0.3; // Set to 30% volume
 
   // Initialize game components
