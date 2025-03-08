@@ -55,14 +55,27 @@ body, html {
 }
 
 #loading-screen h1 {
-  font-size: 48px;
-  margin-bottom: 30px;
+  font-size: 72px;
   text-transform: uppercase;
-  letter-spacing: 5px;
-  text-shadow: 0 0 10px #0ff,
-               0 0 20px #0ff,
-               0 0 30px #0ff;
-  animation: glitch 3s infinite;
+  letter-spacing: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  background: linear-gradient(
+    45deg,
+    #E0E0E0 10%,
+    #FFFFFF 45%,
+    #E0E0E0 75%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 
+    0 0 10px rgba(224, 224, 224, 0.5),
+    0 0 20px rgba(224, 224, 224, 0.3),
+    0 0 30px rgba(224, 224, 224, 0.2);
+  position: relative;
+  margin-bottom: 30px;
+  animation: titlePulse 4s infinite;
 }
 
 #loading-screen p {
@@ -125,6 +138,18 @@ body, html {
   }
 }
 
+@keyframes titlePulse {
+  0% {
+    filter: brightness(1);
+  }
+  50% {
+    filter: brightness(1.2);
+  }
+  100% {
+    filter: brightness(1);
+  }
+}
+
 /* Game UI */
 #game-ui {
   position: absolute;
@@ -136,7 +161,51 @@ body, html {
   z-index: 10;
 }
 
-#health-bar-container, #boost-bar-container {
+#health-container {
+  position: fixed;
+  top: 50px;  /* Below FPS counter */
+  left: 10px;
+  width: 200px;
+  z-index: 1000;
+}
+
+#health-bar {
+  width: 100%;
+  height: 20px;
+  background: linear-gradient(90deg, #ff0000, #ff3333);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+#health-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  animation: healthShine 2s linear infinite;
+}
+
+@keyframes healthShine {
+  0% {
+    transform: translateX(-200px);
+  }
+  100% {
+    transform: translateX(200px);
+  }
+}
+
+#boost-bar-container {
   width: 200px;
   height: 20px;
   background-color: rgba(0, 0, 0, 0.5);
@@ -144,13 +213,6 @@ body, html {
   border-radius: 10px;
   margin-bottom: 10px;
   overflow: hidden;
-}
-
-#health-bar {
-  width: 100%;
-  height: 100%;
-  background-color: #f00;
-  transition: width 0.3s ease;
 }
 
 #boost-bar {
@@ -210,14 +272,26 @@ body, html {
 #username-modal .game-title {
   font-size: 72px;
   text-transform: uppercase;
-  letter-spacing: 5px;
-  text-shadow: 0 0 10px #0ff,
-               0 0 20px #0ff,
-               0 0 30px #0ff;
-  animation: glitch 3s infinite;
-  color: #0ff;
+  letter-spacing: 8px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  background: linear-gradient(
+    45deg,
+    #E0E0E0 10%,
+    #FFFFFF 45%,
+    #E0E0E0 75%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 
+    0 0 10px rgba(224, 224, 224, 0.5),
+    0 0 20px rgba(224, 224, 224, 0.3),
+    0 0 30px rgba(224, 224, 224, 0.2);
+  position: relative;
   margin: 0;
   padding: 0;
+  animation: titlePulse 4s infinite;
 }
 
 .modal-content {

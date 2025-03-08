@@ -1,3 +1,18 @@
+// Helper function to create panel lines
+function addPanelLine(width, height, depth, x, y, z) {
+  const geometry = new THREE.BoxGeometry(width, height, depth);
+  const material = new THREE.MeshStandardMaterial({
+    color: 0x333333,
+    metalness: 0.8,
+    roughness: 0.5,
+    emissive: 0x222222,
+    emissiveIntensity: 0.2
+  });
+  const line = new THREE.Mesh(geometry, material);
+  line.position.set(x, y, z);
+  return line;
+}
+
 class CyberTruck extends Vehicle {
   static getStats() {
     return {

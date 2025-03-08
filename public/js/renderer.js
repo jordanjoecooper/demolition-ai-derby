@@ -74,6 +74,15 @@ class GameRenderer {
       // Set up power-up respawn timer
       setInterval(() => this.updatePowerUps(), 10000); // Check every 10 seconds
 
+      // Camera control states
+      this.cameraMode = 'follow'; // 'follow' or 'orbit'
+      this.orbitAngle = 0;
+      this.orbitDistance = 80;
+      this.orbitHeight = 40;
+      this.orbitSpeed = 0.03;
+      this.targetOrbitAngle = 0;
+      this.smoothFactor = 0.1;
+
     } catch (error) {
       console.error('Error initializing renderer:', error);
       throw error;
@@ -515,8 +524,8 @@ class GameRenderer {
 
   // Create a car model
   createCarModel(playerId, color = 0x00ff00) {
-    // Use VehicleFactory to create a Cybertruck (or other vehicle in the future)
-    const carGroup = VehicleFactory.createVehicle('cybertruck', color);
+    // Use VehicleFactory to create a Future Car
+    const carGroup = VehicleFactory.createVehicle('futurecar', color);
     this.scene.add(carGroup);
     this.playerModels[playerId] = carGroup;
     return carGroup;
@@ -592,24 +601,67 @@ class GameRenderer {
 
   // Update camera to follow a player
   followPlayer(position, rotation) {
-    // Position camera further back and higher for better view
-    const distance = 80; // Increased from 50
-    const height = 40;   // Increased from 30
-    const lookAheadDistance = 30; // Increased from 20
+    if (this.cameraMode === 'orbit') {
+      // Store target position
+      this.cameraTarget = position;
 
-    // Calculate camera position based on player's rotation
-    const cameraX = position.x - Math.sin(rotation) * distance;
-    const cameraZ = position.z - Math.cos(rotation) * distance;
+      // Smoothly interpolate to target angle
+      this.orbitAngle += (this.targetOrbitAngle - this.orbitAngle) * this.smoothFactor;
 
-    // Smoothly move camera to new position
-    this.camera.position.x += (cameraX - this.camera.position.x) * 0.1;
-    this.camera.position.y += (position.y + height - this.camera.position.y) * 0.1;
-    this.camera.position.z += (cameraZ - this.camera.position.z) * 0.1;
+      // Calculate camera position in orbit mode
+      const cameraX = position.x + Math.cos(this.orbitAngle) * this.orbitDistance;
+      const cameraZ = position.z + Math.sin(this.orbitAngle) * this.orbitDistance;
 
-    // Look ahead of the player
-    const lookAtX = position.x + Math.sin(rotation) * lookAheadDistance;
-    const lookAtZ = position.z + Math.cos(rotation) * lookAheadDistance;
-    this.camera.lookAt(lookAtX, position.y + 5, lookAtZ); // Added slight upward look
+      // Update camera position
+      this.camera.position.x = cameraX;
+      this.camera.position.y = position.y + this.orbitHeight;
+      this.camera.position.z = cameraZ;
+
+      // Look at the player
+      this.camera.lookAt(position.x, position.y + 5, position.z);
+    } else {
+      // Original follow camera code
+      const distance = 80;
+      const height = 40;
+      const lookAheadDistance = 30;
+
+      const cameraX = position.x - Math.sin(rotation) * distance;
+      const cameraZ = position.z - Math.cos(rotation) * distance;
+
+      this.camera.position.x += (cameraX - this.camera.position.x) * this.smoothFactor;
+      this.camera.position.y += (position.y + height - this.camera.position.y) * this.smoothFactor;
+      this.camera.position.z += (cameraZ - this.camera.position.z) * this.smoothFactor;
+
+      const lookAtX = position.x + Math.sin(rotation) * lookAheadDistance;
+      const lookAtZ = position.z + Math.cos(rotation) * lookAheadDistance;
+      this.camera.lookAt(lookAtX, position.y + 5, lookAtZ);
+    }
+  }
+
+  // New method to handle camera rotation
+  rotateOrbitCamera(direction) {
+    if (this.cameraMode === 'orbit') {
+      this.targetOrbitAngle += direction * this.orbitSpeed;
+    }
+  }
+
+  // New method to toggle camera mode
+  toggleCameraMode() {
+    if (this.cameraMode === 'follow') {
+      this.cameraMode = 'orbit';
+      // Initialize orbit angle based on current camera position relative to target
+      if (this.cameraTarget) {
+        this.orbitAngle = Math.atan2(
+          this.camera.position.z - this.cameraTarget.z,
+          this.camera.position.x - this.cameraTarget.x
+        );
+      } else {
+        this.orbitAngle = 0;
+      }
+      this.targetOrbitAngle = this.orbitAngle;
+    } else {
+      this.cameraMode = 'follow';
+    }
   }
 
   // Handle window resize

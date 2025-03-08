@@ -1,6 +1,19 @@
 // Handles player input controls
 class GameControls {
   constructor() {
+    this.keys = {};
+    this.mousePosition = { x: 0, y: 0 };
+    this.boost = false;
+
+    // Bind event listeners
+    document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    document.addEventListener('keyup', (e) => this.handleKeyUp(e));
+    document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+
+    // Camera control callbacks
+    this.onCameraRotate = null;
+    this.onCameraToggle = null;
+
     // Control states
     this.keys = {
       forward: false,
@@ -35,6 +48,11 @@ class GameControls {
     document.addEventListener('keyup', (event) => {
       this.handleKeyUp(event);
     });
+
+    // Mouse move event
+    document.addEventListener('mousemove', (event) => {
+      this.handleMouseMove(event);
+    });
   }
 
   // Handle key down events
@@ -42,6 +60,15 @@ class GameControls {
     // Prevent default behavior for game controls
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', ' '].includes(event.key)) {
       event.preventDefault();
+    }
+
+    this.keys[event.key.toLowerCase()] = true;
+
+    // Camera controls
+    if (event.key.toLowerCase() === 'c') {
+      if (this.onCameraToggle) {
+        this.onCameraToggle();
+      }
     }
 
     switch (event.key) {
@@ -69,6 +96,8 @@ class GameControls {
 
   // Handle key up events
   handleKeyUp(event) {
+    this.keys[event.key.toLowerCase()] = false;
+
     switch (event.key) {
       case 'ArrowUp':
       case 'w':
@@ -87,6 +116,12 @@ class GameControls {
         this.keys.right = false;
         break;
     }
+  }
+
+  // Handle mouse move events
+  handleMouseMove(event) {
+    this.mousePosition.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mousePosition.y = -(event.clientY / window.innerHeight) * 2 + 1;
   }
 
   // Activate boost if available
@@ -168,7 +203,26 @@ class GameControls {
       backward: this.keys.backward,
       left: this.keys.left,
       right: this.keys.right,
-      boost: this.keys.boost
+      boost: this.keys.boost,
+      mouseX: this.mousePosition.x,
+      mouseY: this.mousePosition.y
     };
+  }
+
+  // Update camera rotation
+  updateCameraRotation(direction) {
+    if (this.onCameraRotate) {
+      this.onCameraRotate(direction);
+    }
+  }
+
+  // Set camera control callbacks
+  setCallbacks(callbacks) {
+    if (callbacks.onCameraRotate) {
+      this.onCameraRotate = callbacks.onCameraRotate;
+    }
+    if (callbacks.onCameraToggle) {
+      this.onCameraToggle = callbacks.onCameraToggle;
+    }
   }
 }

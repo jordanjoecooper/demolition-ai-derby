@@ -125,6 +125,12 @@ class Game {
     this.handleScoreboardKeyUp = this.handleScoreboardKeyUp.bind(this);
     window.addEventListener('keydown', this.handleScoreboardKey);
     window.addEventListener('keyup', this.handleScoreboardKeyUp);
+
+    // Set up camera control callbacks
+    this.controls.setCallbacks({
+      onCameraRotate: (direction) => this.renderer.rotateOrbitCamera(direction),
+      onCameraToggle: () => this.renderer.toggleCameraMode()
+    });
   }
 
   createDeathScreen() {

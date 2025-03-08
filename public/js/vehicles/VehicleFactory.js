@@ -1,6 +1,6 @@
 class VehicleFactory {
   static vehicles = {
-    cybertruck: CyberTruck
+    futurecar: FutureCar
     // Add more vehicles here as they are created
   };
 
