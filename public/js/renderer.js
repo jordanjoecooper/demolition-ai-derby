@@ -515,102 +515,10 @@ class GameRenderer {
 
   // Create a car model
   createCarModel(playerId, color = 0x00ff00) {
-    // Car body
-    const carGroup = new THREE.Group();
-
-    // Store original color for reference
-    carGroup.originalColor = color;
-
-    // Main body
-    const bodyGeometry = new THREE.BoxGeometry(10, 3, 20);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-      color: color,
-      roughness: 0.5,
-      metalness: 0.7
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 3;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    carGroup.add(body);
-
-    // Cabin
-    const cabinGeometry = new THREE.BoxGeometry(8, 3, 10);
-    const cabinMaterial = new THREE.MeshStandardMaterial({
-      color: 0x333333,
-      roughness: 0.5,
-      metalness: 0.2
-    });
-    const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
-    cabin.position.set(0, 6, -2);
-    cabin.castShadow = true;
-    cabin.receiveShadow = true;
-    carGroup.add(cabin);
-
-    // Wheels
-    const wheelGeometry = new THREE.CylinderGeometry(2, 2, 1, 16);
-    const wheelMaterial = new THREE.MeshStandardMaterial({
-      color: 0x111111,
-      roughness: 1,
-      metalness: 0
-    });
-
-    // Front-left wheel
-    const wheelFL = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheelFL.position.set(6, 2, 6);
-    wheelFL.rotation.z = Math.PI / 2;
-    wheelFL.castShadow = true;
-    carGroup.add(wheelFL);
-
-    // Front-right wheel
-    const wheelFR = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheelFR.position.set(-6, 2, 6);
-    wheelFR.rotation.z = Math.PI / 2;
-    wheelFR.castShadow = true;
-    carGroup.add(wheelFR);
-
-    // Back-left wheel
-    const wheelBL = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheelBL.position.set(6, 2, -6);
-    wheelBL.rotation.z = Math.PI / 2;
-    wheelBL.castShadow = true;
-    carGroup.add(wheelBL);
-
-    // Back-right wheel
-    const wheelBR = new THREE.Mesh(wheelGeometry, wheelMaterial);
-    wheelBR.position.set(-6, 2, -6);
-    wheelBR.rotation.z = Math.PI / 2;
-    wheelBR.castShadow = true;
-    carGroup.add(wheelBR);
-
-    // Add health bar
-    const healthBarContainer = new THREE.Group();
-
-    // Background
-    const healthBgGeometry = new THREE.PlaneGeometry(12, 1);
-    const healthBgMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const healthBg = new THREE.Mesh(healthBgGeometry, healthBgMaterial);
-    healthBarContainer.add(healthBg);
-
-    // Foreground (health indicator)
-    const healthFgGeometry = new THREE.PlaneGeometry(12, 1);
-    const healthFgMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const healthFg = new THREE.Mesh(healthFgGeometry, healthFgMaterial);
-    healthFg.position.z = 0.1;
-    healthBarContainer.add(healthFg);
-
-    // Position the health bar above the car
-    healthBarContainer.position.set(0, 12, 0);
-    healthBarContainer.rotation.x = -Math.PI / 2;
-    carGroup.add(healthBarContainer);
-
-    // Store reference to health bar for updates
-    carGroup.healthBar = healthFg;
-
-    // Add to scene and store in player models
+    // Use VehicleFactory to create a Cybertruck (or other vehicle in the future)
+    const carGroup = VehicleFactory.createVehicle('cybertruck', color);
     this.scene.add(carGroup);
     this.playerModels[playerId] = carGroup;
-
     return carGroup;
   }
 
@@ -684,10 +592,10 @@ class GameRenderer {
 
   // Update camera to follow a player
   followPlayer(position, rotation) {
-    // Position camera behind and above the player
-    const distance = 50;
-    const height = 30;
-    const lookAheadDistance = 20;
+    // Position camera further back and higher for better view
+    const distance = 80; // Increased from 50
+    const height = 40;   // Increased from 30
+    const lookAheadDistance = 30; // Increased from 20
 
     // Calculate camera position based on player's rotation
     const cameraX = position.x - Math.sin(rotation) * distance;
@@ -701,7 +609,7 @@ class GameRenderer {
     // Look ahead of the player
     const lookAtX = position.x + Math.sin(rotation) * lookAheadDistance;
     const lookAtZ = position.z + Math.cos(rotation) * lookAheadDistance;
-    this.camera.lookAt(lookAtX, position.y, lookAtZ);
+    this.camera.lookAt(lookAtX, position.y + 5, lookAtZ); // Added slight upward look
   }
 
   // Handle window resize
