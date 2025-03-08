@@ -23,12 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game state
   let gameInitialized = false;
   const loadingSteps = [
-    { message: 'INITIALIZING COMBAT PROTOCOLS', progress: 15 },
-    { message: 'CHARGING WEAPON SYSTEMS', progress: 30 },
-    { message: 'DEPLOYING TITANIUM EXOSKELETON', progress: 50 },
-    { message: 'ACTIVATING NEURAL INTERFACE', progress: 70 },
-    { message: 'ENGAGING BULLETPROOF MATRIX', progress: 85 },
-    { message: 'BATTLE SYSTEMS ONLINE', progress: 100 }
+    { message: 'INITIALIZING SYSTEMS', progress: 15 },
+    { message: 'MADE WITH ❤️ AND COFFEE', progress: 30 },
+    { message: 'INSPIRED BY @LEVELSIO', progress: 50 },
+    { message: 'PURE INDIE HACKER VIBES', progress: 70 },
+    { message: 'GET READY TO RACE', progress: 85 },
+    { message: 'WELCOME TO CYBER DERBY', progress: 100 }
   ];
 
   function updateLoadingProgress(step, substep = 0) {
@@ -43,11 +43,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (systemMessage) {
       // Clear existing text
       systemMessage.textContent = '';
-      // Type out the new message
+      // Type out the new message with a cool effect
       let charIndex = 0;
       const typeInterval = setInterval(() => {
         if (charIndex < currentStep.message.length) {
-          systemMessage.textContent += currentStep.message[charIndex];
+          const char = currentStep.message[charIndex];
+          if (char === '@') {
+            systemMessage.innerHTML += `<span style="color: #ff3333;">@</span>`;
+          } else if (char === '❤️') {
+            systemMessage.innerHTML += `<span style="color: #ff3333;">❤️</span>`;
+          } else {
+            systemMessage.textContent += char;
+          }
           charIndex++;
         } else {
           clearInterval(typeInterval);
@@ -59,10 +66,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showLoadingScreen() {
-    usernameModal.classList.add('hidden');
-    loadingScreen.classList.remove('hidden');
-    loadingScreen.style.opacity = '1';
-    updateLoadingProgress(0);
+    // Add fade out class to username modal
+    usernameModal.classList.add('fade-out');
+    
+    // Trigger travel effect
+    const travelEffect = document.querySelector('.travel-effect');
+    travelEffect.classList.add('active');
+    
+    // After travel effect, show loading screen
+    setTimeout(() => {
+      usernameModal.classList.add('hidden');
+      loadingScreen.classList.remove('hidden');
+      loadingScreen.classList.add('fade-in');
+      updateLoadingProgress(0);
+      
+      // Remove travel effect
+      setTimeout(() => {
+        travelEffect.classList.remove('active');
+      }, 1000);
+    }, 2000);
   }
 
   // Handle username submission
