@@ -150,14 +150,32 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Convert Map to object for sending over socket
+// Get game state for client
 function getGameStateForClient() {
-    const players = Object.fromEntries(gameState.players);
+    // Convert players Map to an object
+    const playersObj = {};
+    gameState.players.forEach((player, id) => {
+        playersObj[id] = {
+            ...player,
+            // Only include necessary properties
+            id: id,
+            position: player.position,
+            rotation: player.rotation,
+            health: player.health,
+            invincible: player.invincible,
+            eliminated: player.eliminated,
+            username: player.username,
+            kills: player.kills,
+            trickScore: player.trickScore,
+            joinTime: player.joinTime
+        };
+    });
+
     return {
-        arena: gameState.arena,
-        players: players,
-        bot: gameState.botEnabled ? (gameState.bot ? gameState.bot.getState() : null) : null,
-        botEnabled: gameState.botEnabled
+        players: playersObj,
+        bot: gameState.bot ? gameState.bot.getState() : null,
+        botEnabled: gameState.botEnabled,
+        activePlayerCount: Array.from(gameState.players.values()).filter(p => !p.eliminated).length
     };
 }
 
@@ -411,11 +429,12 @@ io.on('connection', (socket) => {
                 player.invincible = true;
                 player.velocity = { x: 0, z: 0 };
 
-                // Emit respawn event
+                // Emit respawn event with updated player count
                 io.emit('playerRespawned', {
                     id: socket.id,
                     position: respawnPosition,
-                    health: 100
+                    health: 100,
+                    activePlayerCount: Array.from(gameState.players.values()).filter(p => !p.eliminated).length
                 });
 
                 // Remove invincibility after 5 seconds

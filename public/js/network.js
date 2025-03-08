@@ -172,9 +172,11 @@ class GameNetwork {
         this.updateHealthUI(0);
       }
       
-      // Store the player data temporarily instead of deleting immediately
-      const eliminatedPlayer = this.players[data.id];
-      delete this.players[data.id];
+      // Mark player as eliminated instead of deleting
+      if (this.players[data.id]) {
+        this.players[data.id].eliminated = true;
+        this.players[data.id].health = 0;
+      }
 
       if (this.onPlayerEliminated) {
         this.onPlayerEliminated(data);
@@ -225,13 +227,15 @@ class GameNetwork {
     this.socket.on('playerRespawned', (data) => {
       GameNetwork.log('Player respawned:', data.id, 'Local player:', this.playerId);
       
-      // First, ensure the player is added back to the players object
+      // Update or add the player with respawn state
       this.players[data.id] = {
+        ...this.players[data.id] || {},
         ...data,
         position: { x: 0, y: 0, z: 0 },
         rotation: 0,
         health: 100,
-        invincible: true
+        invincible: true,
+        eliminated: false  // Make sure to set eliminated to false
       };
 
       // If it's the local player, reset the health bar
@@ -340,14 +344,16 @@ class GameNetwork {
 
   // Update player count UI
   updatePlayerCountUI() {
-    const playerCount = Object.keys(this.players || {}).length;
-    GameNetwork.log('Player count update - Count:', playerCount);
-    GameNetwork.log('Current players:', Object.keys(this.players || {}));
+    // Filter out eliminated players
+    const activePlayers = Object.values(this.players || {}).filter(player => !player.eliminated);
+    const playerCount = activePlayers.length;
+    GameNetwork.log('Player count update - Active players:', playerCount);
+    GameNetwork.log('Current players:', activePlayers.map(p => p.id));
     
     const playerCountElement = document.getElementById('player-count');
     if (playerCountElement) {
-      const text = playerCount === 1 ? 'player' : 'players';
-      playerCountElement.textContent = `${playerCount} ${text}`;
+        const text = playerCount === 1 ? 'player' : 'players';
+        playerCountElement.textContent = `${playerCount} ${text} alive`;
     }
   }
 

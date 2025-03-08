@@ -992,10 +992,12 @@ class Game {
       }
     }
 
-    // Update player count display
+    // Update player count display using server-provided count
     const playerCount = document.getElementById('player-count');
     if (playerCount) {
-      playerCount.textContent = `${currentPlayers.size} players`;
+      const count = data.activePlayerCount || Object.values(data.players).filter(p => !p.eliminated).length;
+      const text = count === 1 ? 'player' : 'players';
+      playerCount.textContent = `${count} ${text} alive`;
     }
 
     // Update other players
