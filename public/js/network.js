@@ -143,11 +143,20 @@ class GameNetwork {
 
     // Player eliminated
     this.socket.on('playerEliminated', (data) => {
+      console.log('Player eliminated:', data.id, 'Local player:', this.playerId);
+      
       if (data.id === this.playerId) {
-        // Immediately set health to 0 when eliminated
+        // Set health to 0
+        const healthFill = document.getElementById('health-fill');
+        if (healthFill) {
+          healthFill.style.transition = 'transform 0.3s ease';
+          healthFill.style.transform = 'scaleX(0)';
+        }
         this.updateHealthUI(0);
       }
       
+      // Store the player data temporarily instead of deleting immediately
+      const eliminatedPlayer = this.players[data.id];
       delete this.players[data.id];
 
       if (this.onPlayerEliminated) {
@@ -162,7 +171,7 @@ class GameNetwork {
           'You were eliminated due to inactivity!' :
           'You were eliminated! Respawning...';
         // Play death sound when local player is eliminated
-        this.deathSound.currentTime = 0; // Reset sound to start
+        this.deathSound.currentTime = 0;
         this.deathSound.play().catch(e => console.log('Error playing death sound:', e));
       } else {
         message = data.reason === 'inactivity' ?
@@ -171,6 +180,9 @@ class GameNetwork {
       }
       this.showEliminationMessage(message);
 
+      // Log the current state
+      console.log('Players after elimination:', this.players);
+      
       // Update player count UI
       this.updatePlayerCountUI();
     });
@@ -194,37 +206,46 @@ class GameNetwork {
     });
 
     this.socket.on('playerRespawned', (data) => {
-      // Add player back to players object with full health
+      console.log('Player respawned:', data.id, 'Local player:', this.playerId);
+      
+      // First, ensure the player is added back to the players object
       this.players[data.id] = {
         ...data,
+        position: { x: 0, y: 0, z: 0 },
+        rotation: 0,
         health: 100,
         invincible: true
       };
 
+      // If it's the local player, reset the health bar
       if (data.id === this.playerId) {
-        // Force an immediate health bar reset
+        console.log('Resetting local player health bar');
         const healthFill = document.getElementById('health-fill');
         if (healthFill) {
-          // Remove any existing transitions
+          // First, remove transition and set to full
           healthFill.style.transition = 'none';
-          // Force a reflow to ensure the transition removal takes effect
-          void healthFill.offsetWidth;
-          // Reset the transform
           healthFill.style.transform = 'scaleX(1)';
-          // Re-enable transition after a short delay
-          requestAnimationFrame(() => {
-            healthFill.style.transition = 'transform 0.3s ease';
-          });
+          
+          // Force reflow
+          void healthFill.offsetWidth;
+          
+          // Re-enable transition for future updates
+          healthFill.style.transition = 'transform 0.3s ease';
         }
-        // Also call updateHealthUI to ensure everything is in sync
+
+        // Also update health through the normal health update function
         this.updateHealthUI(100);
       }
       
+      // Log current players state
+      console.log('Current players after respawn:', this.players);
+      
+      // Update callbacks
       if (this.onPlayerRespawned) {
         this.onPlayerRespawned(data);
       }
 
-      // Update player count UI
+      // Force player count update
       this.updatePlayerCountUI();
     });
 
@@ -287,9 +308,10 @@ class GameNetwork {
   // Update player count UI
   updatePlayerCountUI() {
     const playerCount = Object.keys(this.players || {}).length;
-    console.log('Updating player count:', playerCount, 'Players:', this.players);
+    console.log('Player count update - Count:', playerCount);
+    console.log('Current players:', Object.keys(this.players || {}));
+    
     const playerCountElement = document.getElementById('player-count');
-
     if (playerCountElement) {
       const text = playerCount === 1 ? 'player' : 'players';
       playerCountElement.textContent = `${playerCount} ${text}`;
@@ -305,30 +327,16 @@ class GameNetwork {
       // Ensure health is between 0 and 100
       health = Math.max(0, Math.min(100, health));
       
-      // Special handling for full health reset
-      if (health === 100) {
-        // Remove transition temporarily
-        healthFill.style.transition = 'none';
-        // Force a reflow
-        void healthFill.offsetWidth;
-        // Set transform
-        healthFill.style.transform = 'scaleX(1)';
-        // Re-enable transition
-        requestAnimationFrame(() => {
-          healthFill.style.transition = 'transform 0.3s ease';
-        });
-      } else {
-        // Normal health updates
-        healthFill.style.transition = 'transform 0.3s ease';
-        healthFill.style.transform = `scaleX(${health / 100})`;
-      }
+      // Simple transform update
+      healthFill.style.transition = 'transform 0.3s ease';
+      healthFill.style.transform = `scaleX(${health / 100})`;
 
       // If health is low, add visual feedback
       if (health < 30) {
         const gameContainer = document.getElementById('game-container');
         if (gameContainer) {
           gameContainer.style.animation = 'none';
-          void gameContainer.offsetWidth; // Force reflow
+          void gameContainer.offsetWidth;
           gameContainer.style.animation = 'damage-flash 0.5s';
         }
       }

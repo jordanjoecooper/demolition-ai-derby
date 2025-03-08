@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cyber Derby</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="apple-touch-icon" sizes="180x180" href="img/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon-16x16.png">
+  <link rel="manifest" href="img/site.webmanifest">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css">
   <!-- Add error handling for CSS loading -->
   <script>
     // Check if styles loaded correctly
-    window.addEventListener('load', function() {
+    window.addEventListener('load', function () {
       const styleSheets = document.styleSheets;
       let stylesLoaded = false;
 
@@ -29,6 +34,7 @@
     });
   </script>
 </head>
+
 <body>
   <canvas id="radar" class="radar"></canvas>
   <div id="game-container">
@@ -86,18 +92,20 @@
 
     <!-- Air time indicator - shown when player gets air time -->
     <div id="air-time-indicator" class="air-time-indicator">AIR TIME!</div>
-    
+
     <!-- Hit indicator - shown when players collide -->
     <div id="hit-indicator" class="hit-indicator">HIT!</div>
   </div>
 
   <!-- Error display for debugging -->
-  <div id="error-display" style="display:none; position:fixed; bottom:0; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; max-width:100%; max-height:200px; overflow:auto; z-index:9999;"></div>
+  <div id="error-display"
+    style="display:none; position:fixed; bottom:0; left:0; background:rgba(255,0,0,0.8); color:white; padding:10px; max-width:100%; max-height:200px; overflow:auto; z-index:9999;">
+  </div>
 
   <!-- Libraries -->
   <script>
     // Error handling for script loading
-    window.onerror = function(message, source, lineno, colno, error) {
+    window.onerror = function (message, source, lineno, colno, error) {
       console.error('Error:', message, 'at', source, lineno, colno);
       const errorDisplay = document.getElementById('error-display');
       if (errorDisplay) {
@@ -109,7 +117,6 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
-  <script src="/socket.io/socket.io.js"></script>
 
   <!-- Game Scripts -->
   <script src="js/LevelsBot.js"></script>
@@ -120,10 +127,9 @@
   <script src="js/radar.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
-  <script src="js/three.min.js"></script>
-  <script src="js/socket.io.min.js"></script>
   <script src="js/vehicles/Vehicle.js"></script>
   <script src="js/vehicles/FutureCar.js"></script>
   <script src="js/vehicles/VehicleFactory.js"></script>
 </body>
+
 </html>

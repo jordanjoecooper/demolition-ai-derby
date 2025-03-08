@@ -86,3 +86,13 @@ npm run dev
 ## License
 
 [MIT](LICENSE)
+
+
+
+ATTRRIBUTE MUSIC
+https://www.free-stock-music.com/alex-productions-epic-cinematic-gaming-cyberpunk-reset.html 
+
+Reset by Alex-Productions | https://onsound.eu/
+Music promoted by https://www.free-stock-music.com
+Creative Commons / Attribution 3.0 Unported License (CC BY 3.0)
+https://creativecommons.org/licenses/by/3.0/deed.en_US
