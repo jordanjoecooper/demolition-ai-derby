@@ -353,7 +353,7 @@ class GameNetwork {
     const playerCountElement = document.getElementById('player-count');
     if (playerCountElement) {
         const text = playerCount === 1 ? 'player' : 'players';
-        playerCountElement.textContent = `${playerCount} ${text} alive`;
+        playerCountElement.textContent = `${playerCount} ${text}`;
     }
   }
 
