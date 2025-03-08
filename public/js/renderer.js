@@ -539,6 +539,22 @@ class GameRenderer {
     if (!playerModel) {
       // Use white color for all cars
       playerModel = this.createCarModel(playerId, 0xFFFFFF);
+      
+      // Create shield mesh if it doesn't exist
+      if (!playerModel.shield) {
+        const shieldGeometry = new THREE.SphereGeometry(12, 32, 32);
+        const shieldMaterial = new THREE.MeshPhongMaterial({
+          color: 0x0088ff,
+          transparent: true,
+          opacity: 0.3,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending
+        });
+        playerModel.shield = new THREE.Mesh(shieldGeometry, shieldMaterial);
+        playerModel.add(playerModel.shield);
+        playerModel.shield.visible = false;
+      }
+      
       this.scene.add(playerModel);
       this.playerModels[playerId] = playerModel;
     }
@@ -552,28 +568,39 @@ class GameRenderer {
       playerModel.healthBar.scale.x = health / 100;
     }
 
-    // Handle invincibility effect
+    // Handle shield effect
     if (isInvincible) {
+      if (playerModel.shield) {
+        playerModel.shield.visible = true;
+        // Animate shield opacity
+        playerModel.shield.material.opacity = 0.3 + 0.2 * Math.sin(Date.now() * 0.005);
+        // Rotate shield for effect
+        playerModel.shield.rotation.y += 0.02;
+      }
+      // Reset car material to original
       playerModel.traverse((child) => {
-        if (child.isMesh && child !== playerModel.healthBar) {
-          // Change car color to blue for shield
+        if (child.isMesh && child !== playerModel.healthBar && child !== playerModel.shield) {
           if (child === playerModel.children[0]) { // Main body
-            child.material.color.setHex(0x0088ff); // Blue color
-            child.material.emissive.setHex(0x0044aa); // Blue glow
-            child.material.emissiveIntensity = 0.5;
+            child.material.color.setHex(playerModel.originalColor || 0xFFFFFF);
+            child.material.emissive.setHex(0x000000);
+            child.material.emissiveIntensity = 0;
           }
-          child.material.transparent = true;
-          child.material.opacity = 0.5 + 0.5 * Math.sin(Date.now() * 0.01);
+          child.material.transparent = false;
+          child.material.opacity = 1;
         }
       });
     } else {
+      // Hide shield when not invincible
+      if (playerModel.shield) {
+        playerModel.shield.visible = false;
+      }
       playerModel.traverse((child) => {
-        if (child.isMesh) {
+        if (child.isMesh && child !== playerModel.healthBar && child !== playerModel.shield) {
           if (child === playerModel.children[0]) { // Main body
             child.material.emissiveIntensity = 0;
             // Reset to original color only if not boosting
             if (!isBoosting) {
-              child.material.color.setHex(playerModel.originalColor || 0x00ff00);
+              child.material.color.setHex(playerModel.originalColor || 0xFFFFFF);
               child.material.emissive.setHex(0x000000);
             }
           }

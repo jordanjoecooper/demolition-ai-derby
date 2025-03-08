@@ -40,9 +40,20 @@
   <div id="game-container">
     <!-- Loading screen - initially visible -->
     <div id="loading-screen">
-      <h1>Cyber Derby</h1>
-      <p>Initializing Combat Systems...</p>
-      <p class="loading-status">Loading: <span id="loading-progress">0%</span></p>
+      <h1>CYBER DERBY</h1>
+      <div class="loading-icon">
+        <svg width="100" height="100" viewBox="0 0 100 100">
+          <polygon points="10,50 50,10 90,50 50,90" 
+            style="fill:none;stroke:#ff0000;stroke-width:2">
+            <animate attributeName="stroke-dasharray" 
+              values="0,300;300,0" dur="2s" repeatCount="indefinite"/>
+          </polygon>
+        </svg>
+      </div>
+      <p class="system-message"></p>
+      <div class="loading-status">
+        SYSTEM BOOT: <span id="loading-progress">0%</span>
+      </div>
     </div>
 
     <!-- Game UI - initially hidden -->

@@ -24,12 +24,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Game state
   let gameInitialized = false;
   const loadingSteps = [
-    { message: 'Initializing Combat Systems', progress: 15 },
-    { message: 'Calibrating Weapons', progress: 30 },
-    { message: 'Loading Arena Assets', progress: 50 },
-    { message: 'Establishing Neural Link', progress: 70 },
-    { message: 'Activating Defense Matrix', progress: 85 },
-    { message: 'Synchronizing Battle Grid', progress: 100 }
+    { message: 'INITIALIZING COMBAT PROTOCOLS', progress: 15 },
+    { message: 'CHARGING WEAPON SYSTEMS', progress: 30 },
+    { message: 'DEPLOYING TITANIUM EXOSKELETON', progress: 50 },
+    { message: 'ACTIVATING NEURAL INTERFACE', progress: 70 },
+    { message: 'ENGAGING BULLETPROOF MATRIX', progress: 85 },
+    { message: 'BATTLE SYSTEMS ONLINE', progress: 100 }
   ];
 
   function updateLoadingProgress(step, substep = 0) {
@@ -40,9 +40,20 @@ document.addEventListener('DOMContentLoaded', () => {
     
     loadingProgress.textContent = Math.floor(currentProgress) + '%';
     
-    const loadingMessage = document.querySelector('#loading-screen p:not(.loading-status)');
-    if (loadingMessage) {
-      loadingMessage.textContent = currentStep.message + '...';
+    const systemMessage = document.querySelector('#loading-screen .system-message');
+    if (systemMessage) {
+      // Clear existing text
+      systemMessage.textContent = '';
+      // Type out the new message
+      let charIndex = 0;
+      const typeInterval = setInterval(() => {
+        if (charIndex < currentStep.message.length) {
+          systemMessage.textContent += currentStep.message[charIndex];
+          charIndex++;
+        } else {
+          clearInterval(typeInterval);
+        }
+      }, 50); // Adjust typing speed here
     }
     
     return currentProgress;
