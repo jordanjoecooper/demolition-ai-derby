@@ -1,6 +1,6 @@
 # Demolition Derby
 
-A real-time multiplayer demolition derby game inspired by Need for Speed 2, reimagined with a modern twist. Players control cars in a shared arena, aiming to smash other players' cars while avoiding destruction.
+A real-time multiplayer cyber demolition derby game inspired by Need for Speed 2, reimagined with a modern twist. Players control cars in a shared arena, aiming to smash other players' cars while avoiding destruction.
 
 ## Features
 

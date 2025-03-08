@@ -1,7 +1,7 @@
 {
-  "name": "demolition-derby",
+  "name": "cyber-derby",
   "version": "1.0.0",
-  "description": "A real-time multiplayer demolition derby game",
+  "description": "A real-time multiplayer cyber demolition derby game",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

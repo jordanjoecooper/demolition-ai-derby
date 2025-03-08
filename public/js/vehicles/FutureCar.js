@@ -40,61 +40,58 @@ class FutureCar extends Vehicle {
     // Main body shape (sports car profile)
     const bodyGeometry = new THREE.BufferGeometry();
     
-    // Define vertices for the sports car body with improved rear design
+    // Define vertices for the sports car body
     const vertices = new Float32Array([
       // Left side
-      -7, 2, 20,     // 0: front bottom left
-      -6, 4, 20,     // 1: hood start left
-      -5, 5, 15,     // 2: hood middle left
-      -4.5, 5.5, 10, // 3: windshield bottom left
-      -4, 8, 5,      // 4: windshield top left
-      -4, 8, 0,      // 5: roof left middle
-      -4, 7.5, -5,   // 6: roof rear left
-      -4.5, 6, -10,  // 7: rear window left
-      -5, 4.5, -15,  // 8: trunk left
-      -6, 3.5, -18,  // 9: rear bumper top left
-      -7, 2, -20,    // 10: rear ground left
+      -6, 0, 15,     // 0: front bottom left
+      -6, 3, 15,     // 1: hood start left
+      -5, 4, 12,     // 2: hood middle left
+      -4, 4, 8,      // 3: windshield bottom left
+      -4, 6, 4,      // 4: windshield top left
+      -4, 6, 0,      // 5: roof left middle
+      -4, 6, -4,     // 6: roof rear left
+      -4, 4, -8,     // 7: rear window left
+      -5, 3, -12,    // 8: trunk left
+      -6, 2, -15,    // 9: rear bottom left
 
       // Right side
-      7, 2, 20,      // 11: front bottom right
-      6, 4, 20,      // 12: hood start right
-      5, 5, 15,      // 13: hood middle right
-      4.5, 5.5, 10,  // 14: windshield bottom right
-      4, 8, 5,       // 15: windshield top right
-      4, 8, 0,       // 16: roof right middle
-      4, 7.5, -5,    // 17: roof rear right
-      4.5, 6, -10,   // 18: rear window right
-      5, 4.5, -15,   // 19: trunk right
-      6, 3.5, -18,   // 20: rear bumper top right
-      7, 2, -20,     // 21: rear ground right
+      6, 0, 15,      // 10: front bottom right
+      6, 3, 15,      // 11: hood start right
+      5, 4, 12,      // 12: hood middle right
+      4, 4, 8,       // 13: windshield bottom right
+      4, 6, 4,       // 14: windshield top right
+      4, 6, 0,       // 15: roof right middle
+      4, 6, -4,      // 16: roof rear right
+      4, 4, -8,      // 17: rear window right
+      5, 3, -12,     // 18: trunk right
+      6, 2, -15,     // 19: rear bottom right
     ]);
 
-    // Define faces (triangles) - connecting all body panels
+    // Define faces (triangles)
     const indices = [
-      // Front nose and hood
-      0, 1, 12, 0, 12, 11,    // Front bumper
-      1, 2, 13, 1, 13, 12,    // Hood front
-      2, 3, 14, 2, 14, 13,    // Hood rear
+      // Front hood
+      0, 1, 11, 0, 11, 10,     // Front face
+      1, 2, 12, 1, 12, 11,     // Hood front
+      2, 3, 13, 2, 13, 12,     // Hood rear
       
       // Windshield and roof
-      3, 4, 15, 3, 15, 14,    // Windshield
-      4, 5, 16, 4, 16, 15,    // Roof front
-      5, 6, 17, 5, 17, 16,    // Roof middle
-      6, 7, 18, 6, 18, 17,    // Roof rear
+      3, 4, 14, 3, 14, 13,     // Windshield
+      4, 5, 15, 4, 15, 14,     // Roof front
+      5, 6, 16, 5, 16, 15,     // Roof middle
       
-      // Rear window and trunk
-      7, 8, 19, 7, 19, 18,    // Rear window
-      8, 9, 20, 8, 20, 19,    // Trunk
-      9, 10, 21, 9, 21, 20,   // Rear bumper
+      // Rear section
+      6, 7, 17, 6, 17, 16,     // Rear window
+      7, 8, 18, 7, 18, 17,     // Trunk
+      8, 9, 19, 8, 19, 18,     // Rear face
       
       // Left side panels
-      0, 10, 9, 0, 9, 8, 0, 8, 7, 0, 7, 6, 0, 6, 5, 0, 5, 4, 0, 4, 3, 0, 3, 2, 0, 2, 1,
+      0, 9, 8, 0, 8, 7, 0, 7, 6, 0, 6, 5, 0, 5, 4, 0, 4, 3, 0, 3, 2, 0, 2, 1,
       
       // Right side panels
-      11, 21, 20, 11, 20, 19, 11, 19, 18, 11, 18, 17, 11, 17, 16, 11, 16, 15, 11, 15, 14, 11, 14, 13, 11, 13, 12,
+      10, 19, 18, 10, 18, 17, 10, 17, 16, 10, 16, 15, 10, 15, 14, 10, 14, 13, 10, 13, 12, 10, 12, 11,
       
-      // Bottom
-      0, 11, 21, 0, 21, 10
+      // Bottom (optional)
+      0, 10, 19, 0, 19, 9
     ];
 
     bodyGeometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
@@ -107,8 +104,20 @@ class FutureCar extends Vehicle {
     mainBody.receiveShadow = true;
     carGroup.add(mainBody);
 
-    // Add headlights (modern LED design)
-    const addHeadlight = (isRear = false, side = 1) => {
+    // Add front bumper
+    const frontBumperGeometry = new THREE.BoxGeometry(12, 2, 2);
+    const frontBumper = new THREE.Mesh(frontBumperGeometry, bodyMaterial);
+    frontBumper.position.set(0, 1, 15);
+    carGroup.add(frontBumper);
+
+    // Add rear bumper
+    const rearBumperGeometry = new THREE.BoxGeometry(12, 2, 2);
+    const rearBumper = new THREE.Mesh(rearBumperGeometry, bodyMaterial);
+    rearBumper.position.set(0, 1, -15);
+    carGroup.add(rearBumper);
+
+    // Add headlights
+    const addHeadlight = (side = 1) => {
       const group = new THREE.Group();
       
       // Main light housing
@@ -123,8 +132,8 @@ class FutureCar extends Vehicle {
       // LED strip
       const stripGeometry = new THREE.BoxGeometry(1.8, 0.3, 0.1);
       const stripMaterial = new THREE.MeshStandardMaterial({
-        color: isRear ? 0xff0000 : 0xffffff,
-        emissive: isRear ? 0xff0000 : 0xffffff,
+        color: 0xffffff,
+        emissive: 0xffffff,
         emissiveIntensity: 1.5
       });
       const strip = new THREE.Mesh(stripGeometry, stripMaterial);
@@ -132,28 +141,16 @@ class FutureCar extends Vehicle {
       
       group.add(housing);
       group.add(strip);
-      group.position.set(side * 5.5, 4, isRear ? -19.5 : 19.5);
+      group.position.set(side * 4, 2, 15.5);
       return group;
     };
 
-    // Add trunk lid detail
-    const trunkLidGeometry = new THREE.BoxGeometry(9, 0.1, 4);
-    const trunkLid = new THREE.Mesh(trunkLidGeometry, bodyMaterial);
-    trunkLid.position.set(0, 4.5, -15);
-    carGroup.add(trunkLid);
-
-    // Add rear bumper detail
-    const rearBumperGeometry = new THREE.BoxGeometry(14, 2, 1);
-    const rearBumper = new THREE.Mesh(rearBumperGeometry, bodyMaterial);
-    rearBumper.position.set(0, 3, -19.5);
-    carGroup.add(rearBumper);
-
-    // Add taillights (modern LED design)
+    // Add taillights
     const addTaillight = (side = 1) => {
       const group = new THREE.Group();
       
       // Main light housing
-      const housingGeometry = new THREE.BoxGeometry(2.5, 1, 0.5);
+      const housingGeometry = new THREE.BoxGeometry(2, 1, 0.5);
       const housingMaterial = new THREE.MeshStandardMaterial({
         color: 0x330000,
         metalness: 0.9,
@@ -162,7 +159,7 @@ class FutureCar extends Vehicle {
       const housing = new THREE.Mesh(housingGeometry, housingMaterial);
       
       // LED strip
-      const stripGeometry = new THREE.BoxGeometry(2.2, 0.4, 0.1);
+      const stripGeometry = new THREE.BoxGeometry(1.8, 0.3, 0.1);
       const stripMaterial = new THREE.MeshStandardMaterial({
         color: 0xff0000,
         emissive: 0xff0000,
@@ -173,17 +170,17 @@ class FutureCar extends Vehicle {
       
       group.add(housing);
       group.add(strip);
-      group.position.set(side * 5, 4, -19.5);
+      group.position.set(side * 4, 2, -15.5);
       return group;
     };
 
-    // Add headlights and taillights
-    carGroup.add(addHeadlight(false, 1));  // Right headlight
-    carGroup.add(addHeadlight(false, -1)); // Left headlight
-    carGroup.add(addTaillight(1));         // Right taillight
-    carGroup.add(addTaillight(-1));        // Left taillight
+    // Add lights
+    carGroup.add(addHeadlight(1));   // Right headlight
+    carGroup.add(addHeadlight(-1));  // Left headlight
+    carGroup.add(addTaillight(1));   // Right taillight
+    carGroup.add(addTaillight(-1));  // Left taillight
 
-    // Add windows with better angles
+    // Add windows
     const addWindow = (vertices, position) => {
       const windowGeometry = new THREE.BufferGeometry();
       windowGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
@@ -195,19 +192,19 @@ class FutureCar extends Vehicle {
 
     // Windshield
     const windshieldVertices = new Float32Array([
-      -4.5, 5.5, 10,  // bottom left
-      4.5, 5.5, 10,   // bottom right
-      4, 8, 5,        // top right
-      -4, 8, 5        // top left
+      -4, 4, 8,   // bottom left
+      4, 4, 8,    // bottom right
+      4, 6, 4,    // top right
+      -4, 6, 4    // top left
     ]);
     carGroup.add(addWindow(windshieldVertices, new THREE.Vector3(0, 2, 0)));
 
-    // Side windows (left and right)
+    // Side windows
     const sideWindowVertices = new Float32Array([
-      0, 7.5, 5,    // front top
-      0, 7.5, -5,   // rear top
-      0, 5.5, -5,   // rear bottom
-      0, 5.5, 5     // front bottom
+      0, 6, 4,    // front top
+      0, 6, -4,   // rear top
+      0, 4, -4,   // rear bottom
+      0, 4, 4     // front bottom
     ]);
     
     const leftWindow = addWindow(sideWindowVertices, new THREE.Vector3(-4.1, 2, 0));
@@ -217,15 +214,15 @@ class FutureCar extends Vehicle {
 
     // Rear window
     const rearWindowVertices = new Float32Array([
-      -4, 7.5, -5,   // top left
-      4, 7.5, -5,    // top right
-      4.5, 6, -10,   // bottom right
-      -4.5, 6, -10   // bottom left
+      -4, 6, -4,   // top left
+      4, 6, -4,    // top right
+      4, 4, -8,    // bottom right
+      -4, 4, -8    // bottom left
     ]);
     carGroup.add(addWindow(rearWindowVertices, new THREE.Vector3(0, 2, 0)));
 
-    // Enhanced wheel design
-    const wheelGeometry = new THREE.CylinderGeometry(3, 3, 2, 24);
+    // Add wheels
+    const wheelGeometry = new THREE.CylinderGeometry(2, 2, 1.5, 16);
     const wheelMaterial = new THREE.MeshStandardMaterial({
       color: 0x111111,
       metalness: 0.9,
@@ -233,10 +230,10 @@ class FutureCar extends Vehicle {
     });
 
     const wheelPositions = [
-      { x: 7, y: 3, z: 13 },    // Front Right
-      { x: -7, y: 3, z: 13 },   // Front Left
-      { x: 7, y: 3, z: -13 },   // Rear Right
-      { x: -7, y: 3, z: -13 }   // Rear Left
+      { x: 6, y: 2, z: 10 },     // Front Right
+      { x: -6, y: 2, z: 10 },    // Front Left
+      { x: 6, y: 2, z: -10 },    // Rear Right
+      { x: -6, y: 2, z: -10 }    // Rear Left
     ];
 
     wheelPositions.forEach(pos => {
@@ -244,14 +241,12 @@ class FutureCar extends Vehicle {
       wheel.position.set(pos.x, pos.y, pos.z);
       wheel.rotation.z = Math.PI / 2;
       
-      // Add sporty rim design
-      const rimGeometry = new THREE.TorusGeometry(2.2, 0.3, 8, 16);
+      // Add rim
+      const rimGeometry = new THREE.TorusGeometry(1.5, 0.2, 8, 16);
       const rimMaterial = new THREE.MeshStandardMaterial({
         color: 0xC0C0C0,
         metalness: 0.95,
-        roughness: 0.1,
-        emissive: 0x666666,
-        emissiveIntensity: 0.3
+        roughness: 0.1
       });
 
       const rim = new THREE.Mesh(rimGeometry, rimMaterial);
@@ -261,7 +256,7 @@ class FutureCar extends Vehicle {
       // Add spokes
       for (let i = 0; i < 5; i++) {
         const spoke = new THREE.Mesh(
-          new THREE.BoxGeometry(0.3, 1.8, 0.1),
+          new THREE.BoxGeometry(0.2, 1.2, 0.1),
           rimMaterial
         );
         spoke.position.x = 0.2;
@@ -273,26 +268,22 @@ class FutureCar extends Vehicle {
       carGroup.add(wheel);
     });
 
-    // Add sporty details
-    const addDetail = (width, height, depth, x, y, z, color = 0x00ffff) => {
+    // Add ground effects (optional)
+    const addGroundEffect = (width, height, depth, x, y, z) => {
       const geometry = new THREE.BoxGeometry(width, height, depth);
       const material = new THREE.MeshStandardMaterial({
-        color: color,
+        color: 0x000000,
         metalness: 0.9,
-        roughness: 0.2,
-        emissive: color,
-        emissiveIntensity: 0.3
+        roughness: 0.2
       });
-      const detail = new THREE.Mesh(geometry, material);
-      detail.position.set(x, y, z);
-      return detail;
+      const effect = new THREE.Mesh(geometry, material);
+      effect.position.set(x, y, z);
+      return effect;
     };
 
-    // Add side skirts and other details
-    carGroup.add(addDetail(0.2, 0.5, 20, 7, 3, 0));    // Right side skirt
-    carGroup.add(addDetail(0.2, 0.5, 20, -7, 3, 0));   // Left side skirt
-    carGroup.add(addDetail(14, 0.2, 1, 0, 4, -19.5));  // Rear diffuser
-    carGroup.add(addDetail(14, 0.2, 1, 0, 4, 19.5));   // Front splitter
+    // Add side skirts
+    carGroup.add(addGroundEffect(0.5, 1, 16, 6, 1, 0));    // Right side skirt
+    carGroup.add(addGroundEffect(0.5, 1, 16, -6, 1, 0));   // Left side skirt
 
     return carGroup;
   }
